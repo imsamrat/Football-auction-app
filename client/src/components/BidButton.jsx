@@ -39,6 +39,10 @@ const BidButton = () => {
       toast.error('Please enter a valid bid amount');
       return;
     }
+    if (amount < nextBid) {
+      toast.error(`Minimum bid is ${formatCurrency(nextBid)}`);
+      return;
+    }
 
     setLoading(true);
     emit('bid:place', { amount }, (response) => {
@@ -116,12 +120,12 @@ const BidButton = () => {
                 <div>
                   <label className="block text-sm text-gray-400 mb-2">Bid Amount (৳)</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={bidAmount}
-                    onChange={(e) => setBidAmount(e.target.value)}
+                    onChange={(e) => setBidAmount(e.target.value.replace(/\D/g, ''))}
                     className="input-field text-2xl font-display font-bold text-center"
-                    min={nextBid}
-                    step={bidIncrement}
                     autoFocus
                   />
                   <p className="text-xs text-gray-500 mt-1.5 text-center">

@@ -48,12 +48,6 @@ class BidService {
       throw new Error(`Bid must be at least ৳${minBid.toLocaleString()} (current bid + ৳${auction.bidIncrement.toLocaleString()} increment)`);
     }
 
-    // Validate bid follows increment steps
-    const effectiveBase = auction.totalBids === 0 ? auction.basePrice : auction.currentBid;
-    if (auction.totalBids > 0 && (amount - effectiveBase) % auction.bidIncrement !== 0) {
-      throw new Error(`Bid must be in increments of ৳${auction.bidIncrement.toLocaleString()}`);
-    }
-
     // 5. Check budget
     if (amount > bidder.remainingBudget) {
       throw new Error(`Insufficient budget. Remaining: ৳${bidder.remainingBudget.toLocaleString()}`);
