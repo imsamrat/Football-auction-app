@@ -56,12 +56,15 @@ const BidButton = () => {
     });
   };
 
-  const quickBids = [
+  const baseValue = currentBid > 0 ? currentBid : basePrice;
+  // Create an array with nextBid and the +10k, +20k, +30k, +40k jumps, then remove duplicates
+  const quickBids = Array.from(new Set([
     nextBid,
-    nextBid + bidIncrement,
-    nextBid + bidIncrement * 2,
-    nextBid + bidIncrement * 5,
-  ];
+    baseValue + 10000,
+    baseValue + 20000,
+    baseValue + 30000,
+    baseValue + 40000,
+  ])).slice(0, 4); // Keep only 4 buttons to maintain the 2x2 grid layout
 
   if (!isLive) return null;
 
