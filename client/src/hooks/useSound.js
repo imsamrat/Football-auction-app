@@ -49,10 +49,19 @@ export const useSound = () => {
   }, [playTone]);
 
   const playSoldSound = useCallback(() => {
-    playTone(523, 0.15, 'sine', 0.3);
-    setTimeout(() => playTone(659, 0.15, 'sine', 0.3), 150);
-    setTimeout(() => playTone(784, 0.15, 'sine', 0.3), 300);
-    setTimeout(() => playTone(1047, 0.3, 'sine', 0.4), 450);
+    try {
+      const audio = new Audio('https://actions.google.com/sounds/v1/crowds/team_cheer.ogg');
+      audio.volume = 0.6;
+      audio.play().catch(() => {
+        // Fallback to beeps if audio fails to play
+        playTone(523, 0.15, 'sine', 0.3);
+        setTimeout(() => playTone(659, 0.15, 'sine', 0.3), 150);
+        setTimeout(() => playTone(784, 0.15, 'sine', 0.3), 300);
+        setTimeout(() => playTone(1047, 0.3, 'sine', 0.4), 450);
+      });
+    } catch (e) {
+      // Ignore
+    }
   }, [playTone]);
 
   const playStartSound = useCallback(() => {
