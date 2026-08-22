@@ -172,6 +172,17 @@ module.exports = function setupAuctionSocket(io) {
       }
     });
 
+    socket.on('auction:loadPlayer', async (data, callback) => {
+      if (!requireAdmin(callback)) return;
+      try {
+        await auctionTimerService.loadSpecificPlayer(data.playerId);
+        if (callback) callback({ success: true });
+      } catch (error) {
+        socket.emit('auction:error', { message: error.message });
+        if (callback) callback({ error: error.message });
+      }
+    });
+
     socket.on('auction:getState', async (data, callback) => {
       try {
         const fullState = await auctionTimerService.getFullState();

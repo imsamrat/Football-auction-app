@@ -168,7 +168,12 @@ const AdminAuction = () => {
             </div>
             <div className="max-h-[250px] overflow-y-auto">
               {playerQueue?.map((p, i) => (
-                <div key={p._id} className="flex items-center gap-3 px-4 py-2.5 border-b border-dark-50/30 hover:bg-dark-200/30">
+                <div 
+                  key={p._id} 
+                  onClick={() => (!isLive && !isPaused) ? emitAction('auction:loadPlayer', { playerId: p._id }) : null}
+                  className={`flex items-center gap-3 px-4 py-2.5 border-b border-dark-50/30 transition-colors ${(!isLive && !isPaused) ? 'hover:bg-dark-200/50 cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+                  title={(!isLive && !isPaused) ? "Click to load this player into the auction block" : "Cannot load player while auction is active"}
+                >
                   <span className="text-xs font-bold text-primary w-6">#{p.playerNumber}</span>
                   <span className="text-sm text-white flex-1 truncate">{p.name}</span>
                   <span className={`text-[10px] px-1.5 py-0.5 rounded ${getPositionColor(p.position)}`}>{p.position}</span>

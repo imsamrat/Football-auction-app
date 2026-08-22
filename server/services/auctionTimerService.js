@@ -486,6 +486,37 @@ class AuctionTimerService {
     return fullState;
   }
 
+  async loadSpecificPlayer(playerId) {
+    let liveAuction = await Auction.findOne({ status: { $in: ['LIVE', 'PAUSED'] } });
+    if (liveAuction) {
+      throw new Error('An auction is currently in progress. Complete or reset it first.');
+    }
+
+    // Clear any pending upcoming auction
+    await Auction.deleteMany({ status: 'UPCOMING' });
+
+    const player = await Player.findById(playerId);
+    if (!player || player.status !== 'UPCOMING') {
+      throw new Error('Player not found or not available');
+    }
+
+    const auction = await Auction.create({
+      playerId: player._id,
+      basePrice: player.basePrice,
+      status: 'UPCOMING',
+      stage: 'WAITING',
+      currentBid: 0,
+      totalBids: 0,
+    });
+    this.currentAuctionId = auction._id;
+
+    const fullState = await this.getFullState();
+    this.io.emit('auction:nextPlayer', fullState);
+    this.io.emit('auction:state', fullState);
+
+    return fullState;
+  }
+
   cleanup() {
     this.stopTicking();
     if (this.autoAuctionTimeout) {
