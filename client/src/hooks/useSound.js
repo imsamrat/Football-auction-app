@@ -52,7 +52,13 @@ export const useSound = () => {
     try {
       const audio = new Audio('https://actions.google.com/sounds/v1/alarms/medium_bell_ringing_near.ogg');
       audio.volume = 0.6;
-      audio.play().catch(() => {
+      audio.play().then(() => {
+        // Cut the sound off after 1.5 seconds so it doesn't ring endlessly
+        setTimeout(() => {
+          audio.pause();
+          audio.currentTime = 0;
+        }, 1500);
+      }).catch(() => {
         // Fallback to beeps if audio fails to play
         playTone(523, 0.15, 'sine', 0.3);
         setTimeout(() => playTone(659, 0.15, 'sine', 0.3), 150);
