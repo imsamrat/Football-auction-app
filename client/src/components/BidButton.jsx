@@ -57,14 +57,8 @@ const BidButton = () => {
   };
 
   const baseValue = currentBid > 0 ? currentBid : basePrice;
-  // Create an array with nextBid and the +10k, +20k, +30k, +40k jumps, then remove duplicates
-  const quickBids = Array.from(new Set([
-    nextBid,
-    baseValue + 10000,
-    baseValue + 20000,
-    baseValue + 30000,
-    baseValue + 40000,
-  ])).slice(0, 4); // Keep only 4 buttons to maintain the 2x2 grid layout
+  // Use exact jump amounts
+  const quickBids = [10000, 20000, 50000, 100000];
 
   if (!isLive) return null;
 
@@ -119,38 +113,60 @@ const BidButton = () => {
                   <span className="font-bold text-primary">{user?.name}</span>
                 </div>
 
-                {/* Bid input */}
+                {/* Bid input via +/- */}
                 <div>
-                  <label className="block text-sm text-gray-400 mb-2">Bid Amount (৳)</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={bidAmount}
-                    onChange={(e) => setBidAmount(e.target.value.replace(/\D/g, ''))}
-                    className="input-field text-2xl font-display font-bold text-center"
-                    autoFocus
-                  />
-                  <p className="text-xs text-gray-500 mt-1.5 text-center">
+                  <label className="block text-sm text-gray-400 mb-2 text-center">Bid Amount</label>
+                  <div className="flex items-center justify-between bg-dark-200 border border-dark-50/50 rounded-xl p-2">
+                    <button
+                      onClick={() => {
+                        const val = parseInt(bidAmount) || nextBid;
+                        const newVal = val - 10000;
+                        if (newVal >= nextBid) {
+                          setBidAmount(newVal.toString());
+                        } else {
+                          setBidAmount(nextBid.toString());
+                        }
+                      }}
+                      className="p-3 bg-dark-300 hover:bg-dark-50 rounded-lg text-gray-300 transition-colors"
+                    >
+                      <span className="text-2xl font-bold leading-none select-none">-</span>
+                    </button>
+                    <div className="flex-1 text-center text-3xl font-display font-bold text-white">
+                      {formatCurrency(parseInt(bidAmount) || 0)}
+                    </div>
+                    <button
+                      onClick={() => {
+                        const val = parseInt(bidAmount) || nextBid;
+                        setBidAmount((val + 10000).toString());
+                      }}
+                      className="p-3 bg-dark-300 hover:bg-dark-50 rounded-lg text-gray-300 transition-colors"
+                    >
+                      <span className="text-2xl font-bold leading-none select-none">+</span>
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2 text-center">
                     Minimum: {formatCurrency(nextBid)}
                   </p>
                 </div>
 
                 {/* Quick bid buttons */}
                 <div className="grid grid-cols-2 gap-2">
-                  {quickBids.map((amount) => (
-                    <button
-                      key={amount}
-                      onClick={() => setBidAmount(amount.toString())}
-                      className={`py-2.5 rounded-xl text-sm font-bold transition-all ${
-                        parseInt(bidAmount) === amount
-                          ? 'bg-primary text-white'
-                          : 'bg-dark-200 text-gray-300 hover:bg-dark-300 border border-dark-50'
-                      }`}
-                    >
-                      {formatCurrency(amount)}
-                    </button>
-                  ))}
+                  {quickBids.map((jump) => {
+                    const amount = baseValue + jump;
+                    return (
+                      <button
+                        key={jump}
+                        onClick={() => setBidAmount(amount.toString())}
+                        className={`py-2.5 rounded-xl text-sm font-bold transition-all ${
+                          parseInt(bidAmount) === amount
+                            ? 'bg-primary text-white'
+                            : 'bg-dark-200 text-gray-300 hover:bg-dark-300 border border-dark-50'
+                        }`}
+                      >
+                        +{formatCurrency(jump)}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Submit */}
