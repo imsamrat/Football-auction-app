@@ -1,5 +1,6 @@
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Radio, Users } from 'lucide-react';
+import { Radio, Users, Maximize, Minimize } from 'lucide-react';
 import { useAuction } from '../context/AuctionContext';
 import PlayerCard from '../components/PlayerCard';
 import AuctionPanel from '../components/AuctionPanel';
@@ -16,8 +17,31 @@ const AuctionArena = () => {
     nextPlayer, bidders,
   } = useAuction();
 
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const arenaRef = useRef(null);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      arenaRef.current?.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable fullscreen mode: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
+
   return (
-    <div className="min-h-screen">
+    <div ref={arenaRef} className="min-h-screen bg-dark-300 overflow-y-auto">
       {/* Sold/Unsold overlay */}
       <SoldOverlay />
 
@@ -59,6 +83,13 @@ const AuctionArena = () => {
               <Users className="w-3 h-3" />
               {completedPlayers}/{totalPlayers}
             </span>
+            <button 
+              onClick={toggleFullscreen}
+              className="p-1.5 ml-2 hover:bg-dark-50 rounded-lg text-gray-400 hover:text-white transition-colors"
+              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            >
+              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+            </button>
           </div>
         </div>
       </div>
