@@ -409,7 +409,7 @@ class AuctionTimerService {
     }).populate('playerId');
 
     const nextPlayer = await Player.findOne({ status: 'UPCOMING' }).sort({ auctionOrder: 1 });
-    const playerQueue = await Player.find({ status: 'UPCOMING' }).sort({ auctionOrder: 1 }).limit(10);
+    const playerQueue = await Player.find({ status: 'UPCOMING' }).sort({ auctionOrder: 1 });
     const bidders = await Bidder.find({ status: 'ACTIVE' }).sort({ bidderNumber: 1 });
     const settings = await this.getSettings();
 

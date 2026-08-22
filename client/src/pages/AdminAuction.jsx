@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, RotateCcw, SkipForward, CheckCircle, XCircle, ChevronRight, Radio, Settings } from 'lucide-react';
+import { Play, Pause, RotateCcw, SkipForward, CheckCircle, XCircle, ChevronRight, Radio, Search } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 import { useAuction } from '../context/AuctionContext';
 import { formatCurrency, formatTime, getStageLabel, getStageColor, getPlayerInitials, getPositionColor } from '../utils/helpers';
@@ -17,6 +17,8 @@ const AdminAuction = () => {
     nextPlayer, playerQueue, totalPlayers, completedPlayers,
     settings
   } = useAuction();
+
+  const [searchQuery, setSearchQuery] = useState('');
 
   const isLoaded = currentAuction?.status === 'UPCOMING';
 
@@ -162,12 +164,25 @@ const AdminAuction = () => {
         {/* Right - Player Queue + Bidders */}
         <div className="lg:col-span-4 space-y-6">
           {/* Queue */}
-          <div className="glass-card overflow-hidden">
-            <div className="p-4 border-b border-dark-50/50">
-              <h3 className="text-sm text-gray-400 uppercase tracking-wider font-bold">Player Queue</h3>
+          <div className="glass-card overflow-hidden flex flex-col max-h-[400px]">
+            <div className="p-4 border-b border-dark-50/50 flex flex-col gap-3">
+              <h3 className="text-sm text-gray-400 uppercase tracking-wider font-bold">Player Queue ({playerQueue?.length || 0})</h3>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Search player name or #..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-dark-200 border border-dark-50/50 rounded-lg py-2 pl-9 pr-4 text-sm text-white placeholder-gray-500 focus:border-primary/50 focus:outline-none transition-colors"
+                />
+              </div>
             </div>
-            <div className="max-h-[250px] overflow-y-auto">
-              {playerQueue?.map((p, i) => (
+            <div className="overflow-y-auto flex-1">
+              {playerQueue?.filter(p => 
+                p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                p.playerNumber.toString().includes(searchQuery)
+              ).map((p, i) => (
                 <div 
                   key={p._id} 
                   onClick={() => (!isLive && !isPaused) ? emitAction('auction:loadPlayer', { playerId: p._id }) : null}
@@ -181,6 +196,12 @@ const AdminAuction = () => {
               ))}
               {(!playerQueue || playerQueue.length === 0) && (
                 <div className="p-4 text-center text-gray-500 text-sm">No upcoming players</div>
+              )}
+              {playerQueue?.length > 0 && playerQueue.filter(p => 
+                p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                p.playerNumber.toString().includes(searchQuery)
+              ).length === 0 && (
+                <div className="p-4 text-center text-gray-500 text-sm">No players match "{searchQuery}"</div>
               )}
             </div>
           </div>
