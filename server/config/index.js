@@ -7,7 +7,7 @@ module.exports = {
   mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/football-auction',
   jwtSecret: process.env.JWT_SECRET || 'fallback-secret-key',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+  clientUrl: (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, ''),
   adminUsername: process.env.ADMIN_USERNAME || 'admin',
   adminPassword: process.env.ADMIN_PASSWORD || 'admin123',
 };
