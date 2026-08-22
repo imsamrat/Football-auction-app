@@ -106,3 +106,13 @@ exports.getResult = async (req, res, next) => {
     next(error);
   }
 };
+
+// Get bids for a specific player
+exports.getPlayerBids = async (req, res, next) => {
+  try {
+    const bids = await Bid.find({ playerId: req.params.playerId }).sort({ amount: -1 });
+    res.json(bids);
+  } catch (error) {
+    next(error);
+  }
+};
