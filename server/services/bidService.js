@@ -81,16 +81,8 @@ class BidService {
     auction.highestBidderTeam = bidder.team;
     auction.totalBids += 1;
 
-    // 9. Check for bid extension
-    const remainingSeconds = Math.ceil(remainingMs / 1000);
-    if (settings.bidExtensionEnabled && remainingSeconds <= settings.bidExtensionThreshold) {
-      await this.auctionTimerService.extendTimer(settings.bidExtensionTime);
-      // Re-fetch auction to get updated endTime
-      const updatedAuction = await Auction.findById(auction._id);
-      if (updatedAuction) {
-        auction.endTime = updatedAuction.endTime;
-      }
-    }
+    // 9. Reset timer to full duration on new bid
+    auction.endTime = new Date(Date.now() + (settings.auctionDuration || 30) * 1000);
 
     await auction.save();
 
