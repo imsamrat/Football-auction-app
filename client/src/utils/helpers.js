@@ -1,5 +1,5 @@
 export const formatCurrency = (amount) => {
-  return `৳ ${Number(amount || 0).toLocaleString('en-IN')}`;
+  return `$${Number(amount || 0).toLocaleString('en-US')}`;
 };
 
 export const formatTime = (seconds) => {
