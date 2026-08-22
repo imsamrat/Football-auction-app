@@ -50,7 +50,7 @@ export const useSound = () => {
 
   const playSoldSound = useCallback(() => {
     try {
-      const audio = new Audio('https://actions.google.com/sounds/v1/crowds/team_cheer.ogg');
+      const audio = new Audio('https://actions.google.com/sounds/v1/alarms/medium_bell_ringing_near.ogg');
       audio.volume = 0.6;
       audio.play().catch(() => {
         // Fallback to beeps if audio fails to play
