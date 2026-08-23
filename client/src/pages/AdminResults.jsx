@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Eye, X, Clock } from 'lucide-react';
+import { Trophy, Eye, X, Clock, Search, Filter } from 'lucide-react';
 import { getResults, getPlayerBids } from '../services/auctionService';
 import { formatCurrency, getStatusBadge } from '../utils/helpers';
 
@@ -10,6 +10,9 @@ const AdminResults = () => {
   const [selectedBids, setSelectedBids] = useState(null);
   const [loadingBids, setLoadingBids] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [winnerFilter, setWinnerFilter] = useState('ALL');
 
   useEffect(() => { loadResults(); }, []);
 
@@ -41,13 +44,64 @@ const AdminResults = () => {
     }
   };
 
+  const uniqueWinners = useMemo(() => {
+    return Array.from(new Set(results.map(r => r.bidderName).filter(Boolean))).sort();
+  }, [results]);
+
   if (loading) return <div className="flex justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+
+  const filteredResults = results.filter(r => {
+    const matchSearch = r.playerName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                        r.bidderName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        r.playerNumber?.toString().includes(searchTerm);
+    const matchStatus = statusFilter === 'ALL' || r.status === statusFilter;
+    const matchWinner = winnerFilter === 'ALL' || r.bidderName === winnerFilter;
+    return matchSearch && matchStatus && matchWinner;
+  });
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-3xl font-display font-bold text-white">Auction Results</h1>
         <p className="text-gray-400 mt-1">{results.length} completed auctions</p>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="input-field pl-10"
+            placeholder="Search by player name, number, or winner..."
+          />
+        </div>
+        <div className="relative md:w-48">
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="input-field pl-10 appearance-none"
+          >
+            <option value="ALL">All Status</option>
+            <option value="SOLD">Sold</option>
+            <option value="UNSOLD">Unsold</option>
+          </select>
+        </div>
+        <div className="relative md:w-48">
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+          <select
+            value={winnerFilter}
+            onChange={(e) => setWinnerFilter(e.target.value)}
+            className="input-field pl-10 appearance-none"
+          >
+            <option value="ALL">All Winners</option>
+            {uniqueWinners.map(winner => (
+              <option key={winner} value={winner}>{winner}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="glass-card overflow-hidden">
@@ -66,7 +120,7 @@ const AdminResults = () => {
               </tr>
             </thead>
             <tbody>
-              {results.map((r) => (
+              {filteredResults.map((r) => (
                 <tr key={r._id} className="border-b border-dark-50/30 hover:bg-dark-200/30 transition-colors">
                   <td className="px-4 py-3 text-primary font-bold">{r.playerNumber}</td>
                   <td className="px-4 py-3 font-semibold text-white">{r.playerName}</td>
@@ -88,9 +142,18 @@ const AdminResults = () => {
                       {r.totalBids}
                     </button>
                   </td>
-                  <td className="px-4 py-3 text-center"><span className={getStatusBadge(r.status)}>{r.status}</span></td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={getStatusBadge(r.status)}>{r.status}</span>
+                  </td>
                 </tr>
               ))}
+              {filteredResults.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
+                    No results match your filters.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

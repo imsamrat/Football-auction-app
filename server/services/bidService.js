@@ -2,6 +2,21 @@ const Bid = require('../models/Bid');
 const Auction = require('../models/Auction');
 const Bidder = require('../models/Bidder');
 const Settings = require('../models/Settings');
+const { getActiveSeasonId } = require('../utils/seasonHelper');
+
+// Calculate dynamic bid increment based on current bid amount and tier thresholds
+function getBidIncrement(currentBidAmount, settings) {
+  const tier1Threshold = settings.bidIncrementTier1Threshold || 500000;
+  const tier2Threshold = settings.bidIncrementTier2Threshold || 1000000;
+
+  if (currentBidAmount >= tier2Threshold) {
+    return settings.bidIncrementTier3 || 30000;
+  } else if (currentBidAmount >= tier1Threshold) {
+    return settings.bidIncrementTier2 || 20000;
+  } else {
+    return settings.bidIncrementTier1 || 10000;
+  }
+}
 
 class BidService {
   constructor(auctionTimerService) {
@@ -33,24 +48,26 @@ class BidService {
       throw new Error('Bidder is inactive');
     }
 
-    // 4. Validate amount
-    const settings = await Settings.findOne() || { bidIncrement: 500 };
+    // 4. Validate amount using dynamic tiered increment
+    const settings = await Settings.findOne() || {};
+    const effectiveBid = auction.currentBid > 0 ? auction.currentBid : auction.basePrice;
+    const dynamicIncrement = getBidIncrement(effectiveBid, settings);
     const minBid = auction.currentBid > 0
-      ? auction.currentBid + auction.bidIncrement
-      : auction.basePrice + auction.bidIncrement;
+      ? auction.currentBid + dynamicIncrement
+      : auction.basePrice + dynamicIncrement;
 
     // If no bids yet, first bid must be at least basePrice
     if (auction.totalBids === 0 && amount < auction.basePrice) {
-      throw new Error(`Bid must be at least ৳${auction.basePrice.toLocaleString()}`);
+      throw new Error(`Bid must be at least $${auction.basePrice.toLocaleString()}`);
     }
 
     if (auction.totalBids > 0 && amount < minBid) {
-      throw new Error(`Bid must be at least ৳${minBid.toLocaleString()} (current bid + ৳${auction.bidIncrement.toLocaleString()} increment)`);
+      throw new Error(`Bid must be at least $${minBid.toLocaleString()} (current bid + $${dynamicIncrement.toLocaleString()} increment)`);
     }
 
     // 5. Check budget
     if (amount > bidder.remainingBudget) {
-      throw new Error(`Insufficient budget. Remaining: ৳${bidder.remainingBudget.toLocaleString()}`);
+      throw new Error(`Insufficient budget. Remaining: $${bidder.remainingBudget.toLocaleString()}`);
     }
 
     // 6. Prevent same bidder from bidding against themselves
@@ -59,7 +76,9 @@ class BidService {
     }
 
     // 7. Create bid record
+    const auctionSeasonId = await getActiveSeasonId();
     const bid = await Bid.create({
+      auctionSeasonId,
       playerId: auction.playerId,
       auctionId: auction._id,
       bidderId: bidder._id,
@@ -68,12 +87,14 @@ class BidService {
       amount,
     });
 
-    // 8. Update auction
+    // 8. Update auction with new dynamic increment for next bid
+    const newIncrement = getBidIncrement(amount, settings);
     auction.currentBid = amount;
     auction.highestBidderId = bidder._id;
     auction.highestBidderName = bidder.name;
     auction.highestBidderTeam = bidder.team;
     auction.totalBids += 1;
+    auction.bidIncrement = newIncrement;
 
     // 9. Reset timer to full duration on new bid
     auction.endTime = new Date(Date.now() + (settings.auctionDuration || 30) * 1000);
@@ -87,6 +108,7 @@ class BidService {
         highestBidderName: auction.highestBidderName,
         highestBidderTeam: auction.highestBidderTeam,
         totalBids: auction.totalBids,
+        bidIncrement: auction.bidIncrement,
         remainingTime: Math.max(0, Math.ceil((auction.endTime.getTime() - Date.now()) / 1000)),
       },
     };

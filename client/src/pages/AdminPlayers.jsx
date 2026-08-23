@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit, Trash2, Search, X, Save } from 'lucide-react';
-import { getPlayers, createPlayer, updatePlayer, deletePlayer } from '../services/playerService';
+import { Plus, Edit, Trash2, Search, X, Save, RotateCcw } from 'lucide-react';
+import { getPlayers, createPlayer, updatePlayer, deletePlayer, revertPlayer } from '../services/playerService';
 import { formatCurrency, getStatusBadge, getPositionColor } from '../utils/helpers';
 import toast from 'react-hot-toast';
+import ConfirmModal from '../components/ConfirmModal';
 
 const AdminPlayers = () => {
   const [players, setPlayers] = useState([]);
@@ -15,6 +16,7 @@ const AdminPlayers = () => {
     playerNumber: '', name: '', position: 'STRIKER', division: '',
     basePrice: '', matches: 0, goals: 0, assists: 0, rating: 0, photo: ''
   });
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false });
 
   useEffect(() => { loadPlayers(); }, []);
 
@@ -87,14 +89,40 @@ const AdminPlayers = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this player?')) return;
-    try {
-      await deletePlayer(id);
-      toast.success('Player deleted');
-      loadPlayers();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to delete player');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Player',
+      message: 'Are you sure you want to delete this player?',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          await deletePlayer(id);
+          toast.success('Player deleted');
+          loadPlayers();
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'Failed to delete player');
+        }
+      }
+    });
+  };
+
+  const handleRevert = async (player) => {
+    const action = player.status === 'SOLD' ? 'revert the sale (bidder budget will be restored)' : 'put back for auction';
+    setConfirmModal({
+      isOpen: true,
+      title: 'Revert Player',
+      message: `Are you sure you want to ${action} for ${player.name}?\n\nThis will:\n• Set player status back to UPCOMING\n${player.status === 'SOLD' ? '• Restore bidder budget\n• Remove from bidder purchased list\n' : ''}• Delete all auction records for this player`,
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          await revertPlayer(player._id);
+          toast.success(`${player.name} reverted to UPCOMING`);
+          loadPlayers();
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'Failed to revert player');
+        }
+      }
+    });
   };
 
   const filtered = players.filter(p =>
@@ -159,6 +187,11 @@ const AdminPlayers = () => {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      {(player.status === 'SOLD' || player.status === 'UNSOLD') && (
+                        <button onClick={() => handleRevert(player)} className="p-1.5 hover:bg-primary/10 rounded-lg text-gray-400 hover:text-primary transition-colors" title="Re-Auction (revert to UPCOMING)">
+                          <RotateCcw className="w-4 h-4" />
+                        </button>
+                      )}
                       <button onClick={() => openEdit(player)} className="p-1.5 hover:bg-dark-300 rounded-lg text-gray-400 hover:text-white transition-colors">
                         <Edit className="w-4 h-4" />
                       </button>
@@ -267,6 +300,12 @@ const AdminPlayers = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Confirm Modal */}
+      <ConfirmModal 
+        {...confirmModal} 
+        onClose={() => setConfirmModal({ isOpen: false })} 
+      />
     </div>
   );
 };

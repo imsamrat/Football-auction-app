@@ -4,7 +4,7 @@ import { formatCurrency } from '../utils/helpers';
 import { useAuction } from '../context/AuctionContext';
 
 const BidHistory = () => {
-  const { bids } = useAuction();
+  const { bids = [] } = useAuction();
 
   return (
     <div className="glass-card overflow-hidden">

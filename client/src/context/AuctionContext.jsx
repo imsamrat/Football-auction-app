@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useSocket } from './SocketContext';
 import { useSound } from '../hooks/useSound';
+import { setCurrencySymbol } from '../utils/helpers';
 
 const AuctionContext = createContext(null);
 
@@ -23,6 +24,8 @@ export const AuctionProvider = ({ children }) => {
     settings: null,
     totalPlayers: 0,
     completedPlayers: 0,
+    breakMode: false,
+    breakMessage: '',
   });
 
   const [remainingTime, setRemainingTime] = useState(0);
@@ -65,6 +68,10 @@ export const AuctionProvider = ({ children }) => {
 
     const onState = (data) => {
       setAuctionState(data);
+      // Sync currency symbol from settings
+      if (data.settings?.currencySymbol) {
+        setCurrencySymbol(data.settings.currencySymbol);
+      }
       if (data.auction) {
         setRemainingTime(data.auction.remainingTime || 0);
         setStage(data.auction.stage || 'WAITING');
@@ -155,6 +162,8 @@ export const AuctionProvider = ({ children }) => {
     socket.on('auction:reset', onState);
     socket.on('auction:skipped', onState);
     socket.on('auction:nextPlayer', onState);
+    socket.on('auction:breakStarted', onState);
+    socket.on('auction:breakEnded', onState);
 
     return () => {
       socket.off('auction:state', onState);
@@ -168,6 +177,8 @@ export const AuctionProvider = ({ children }) => {
       socket.off('auction:reset', onState);
       socket.off('auction:skipped', onState);
       socket.off('auction:nextPlayer', onState);
+      socket.off('auction:breakStarted', onState);
+      socket.off('auction:breakEnded', onState);
     };
   }, [socket, playBidSound, playGoingOnceSound, playGoingTwiceSound, playFinalCallSound, playSoldSound, playStartSound, playTickSound]);
 

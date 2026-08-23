@@ -6,14 +6,24 @@ import CountdownTimer from './CountdownTimer';
 import BidButton from './BidButton';
 
 const AuctionPanel = () => {
-  const { currentAuction, isLive, isPaused, stage } = useAuction();
+  const { currentAuction, isLive, isPaused, stage, settings } = useAuction();
 
   const currentBid = currentAuction?.currentBid || 0;
   const basePrice = currentAuction?.basePrice || 0;
-  const bidIncrement = currentAuction?.bidIncrement || 500;
   const totalBids = currentAuction?.totalBids || 0;
   const highestBidderName = currentAuction?.highestBidderName || '—';
   const highestBidderTeam = currentAuction?.highestBidderTeam || '';
+
+  // Dynamic bid increment based on tier
+  const effectiveBid = currentBid > 0 ? currentBid : basePrice;
+  const tier1Threshold = settings?.bidIncrementTier1Threshold || 500000;
+  const tier2Threshold = settings?.bidIncrementTier2Threshold || 1000000;
+  let bidIncrement = settings?.bidIncrementTier1 || 10000;
+  if (effectiveBid >= tier2Threshold) {
+    bidIncrement = settings?.bidIncrementTier3 || 30000;
+  } else if (effectiveBid >= tier1Threshold) {
+    bidIncrement = settings?.bidIncrementTier2 || 20000;
+  }
 
   return (
     <motion.div

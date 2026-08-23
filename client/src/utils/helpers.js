@@ -1,5 +1,14 @@
+// Global mutable currency symbol, updated from settings
+let _currencySymbol = '$';
+
+export const setCurrencySymbol = (symbol) => {
+  _currencySymbol = symbol || '$';
+};
+
+export const getCurrencySymbol = () => _currencySymbol;
+
 export const formatCurrency = (amount) => {
-  return `$${Number(amount || 0).toLocaleString('en-US')}`;
+  return `${_currencySymbol}${Number(amount || 0).toLocaleString('en-US')}`;
 };
 
 export const formatTime = (seconds) => {

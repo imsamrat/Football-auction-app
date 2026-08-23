@@ -2,6 +2,11 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const bidderSchema = new mongoose.Schema({
+  auctionSeasonId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'AuctionSeason',
+    index: true,
+  },
   name: {
     type: String,
     required: [true, 'Bidder name is required'],
@@ -10,7 +15,6 @@ const bidderSchema = new mongoose.Schema({
   bidderNumber: {
     type: Number,
     required: [true, 'Bidder number is required'],
-    unique: true,
   },
   team: {
     type: String,
@@ -50,7 +54,7 @@ const bidderSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-bidderSchema.index({ bidderNumber: 1 });
+bidderSchema.index({ bidderNumber: 1, auctionSeasonId: 1 }, { unique: true });
 bidderSchema.index({ status: 1 });
 
 bidderSchema.pre('save', async function (next) {

@@ -12,6 +12,7 @@ const playerRoutes = require('./routes/playerRoutes');
 const bidderRoutes = require('./routes/bidderRoutes');
 const auctionRoutes = require('./routes/auctionRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
+const auctionSeasonRoutes = require('./routes/auctionSeasonRoutes');
 
 // Socket handler
 // Socket handler
@@ -46,6 +47,7 @@ app.use('/api/players', playerRoutes);
 app.use('/api/bidders', bidderRoutes);
 app.use('/api/auction', auctionRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/seasons', auctionSeasonRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

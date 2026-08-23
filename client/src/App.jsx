@@ -26,6 +26,7 @@ import AdminBidders from './pages/AdminBidders';
 import AdminAuction from './pages/AdminAuction';
 import AdminResults from './pages/AdminResults';
 import AdminSettings from './pages/AdminSettings';
+import AdminSeasons from './pages/AdminSeasons';
 
 // Bidder pages
 import BidderDashboard from './pages/BidderDashboard';
@@ -61,6 +62,7 @@ function App() {
                 <Route path="/admin/auction" element={<AdminAuction />} />
                 <Route path="/admin/results" element={<AdminResults />} />
                 <Route path="/admin/settings" element={<AdminSettings />} />
+                <Route path="/admin/seasons" element={<AdminSeasons />} />
               </Route>
 
               {/* Bidder routes */}

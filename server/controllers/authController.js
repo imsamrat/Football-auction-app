@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const Admin = require('../models/Admin');
 const Bidder = require('../models/Bidder');
 const config = require('../config');
+const { getSeasonFilter } = require('../utils/seasonHelper');
 
 const generateToken = (payload) => {
   return jwt.sign(payload, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
@@ -43,7 +44,8 @@ exports.bidderLogin = async (req, res, next) => {
       return res.status(400).json({ message: 'Bidder number and password are required' });
     }
 
-    const bidder = await Bidder.findOne({ bidderNumber: Number(bidderNumber) });
+    const seasonFilter = await getSeasonFilter();
+    const bidder = await Bidder.findOne({ ...seasonFilter, bidderNumber: Number(bidderNumber) });
     if (!bidder) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }

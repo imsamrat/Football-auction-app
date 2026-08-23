@@ -1,10 +1,14 @@
 const mongoose = require('mongoose');
 
 const playerSchema = new mongoose.Schema({
+  auctionSeasonId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'AuctionSeason',
+    index: true,
+  },
   playerNumber: {
     type: Number,
     required: [true, 'Player number is required'],
-    unique: true,
   },
   name: {
     type: String,
@@ -49,6 +53,6 @@ const playerSchema = new mongoose.Schema({
 
 playerSchema.index({ auctionOrder: 1 });
 playerSchema.index({ status: 1 });
-playerSchema.index({ playerNumber: 1 });
+playerSchema.index({ playerNumber: 1, auctionSeasonId: 1 }, { unique: true });
 
 module.exports = mongoose.model('Player', playerSchema);

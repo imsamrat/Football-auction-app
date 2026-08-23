@@ -3,17 +3,20 @@ const AuctionResult = require('../models/AuctionResult');
 const Player = require('../models/Player');
 const Bid = require('../models/Bid');
 const Bidder = require('../models/Bidder');
+const { getSeasonFilter } = require('../utils/seasonHelper');
 
 // Get current auction state
 exports.getCurrentAuction = async (req, res, next) => {
   try {
+    const filter = await getSeasonFilter();
     const auction = await Auction.findOne({
+      ...filter,
       status: { $in: ['LIVE', 'PAUSED'] }
     }).populate('playerId');
 
     if (!auction) {
       // Find the next upcoming player
-      const nextPlayer = await Player.findOne({ status: 'UPCOMING' }).sort({ auctionOrder: 1 });
+      const nextPlayer = await Player.findOne({ ...filter, status: 'UPCOMING' }).sort({ auctionOrder: 1 });
       return res.json({ auction: null, nextPlayer });
     }
 
@@ -45,7 +48,8 @@ exports.getCurrentAuction = async (req, res, next) => {
 // Get auction results
 exports.getResults = async (req, res, next) => {
   try {
-    const results = await AuctionResult.find()
+    const filter = await getSeasonFilter();
+    const results = await AuctionResult.find(filter)
       .sort({ createdAt: -1 })
       .populate('playerId', 'playerNumber name photo position');
     res.json(results);
@@ -57,19 +61,20 @@ exports.getResults = async (req, res, next) => {
 // Get auction stats
 exports.getStats = async (req, res, next) => {
   try {
-    const totalPlayers = await Player.countDocuments();
-    const soldPlayers = await Player.countDocuments({ status: 'SOLD' });
-    const unsoldPlayers = await Player.countDocuments({ status: 'UNSOLD' });
-    const upcomingPlayers = await Player.countDocuments({ status: 'UPCOMING' });
+    const filter = await getSeasonFilter();
+    const totalPlayers = await Player.countDocuments(filter);
+    const soldPlayers = await Player.countDocuments({ ...filter, status: 'SOLD' });
+    const unsoldPlayers = await Player.countDocuments({ ...filter, status: 'UNSOLD' });
+    const upcomingPlayers = await Player.countDocuments({ ...filter, status: 'UPCOMING' });
 
-    const soldResults = await AuctionResult.find({ status: 'SOLD' });
+    const soldResults = await AuctionResult.find({ ...filter, status: 'SOLD' });
 
     const totalAuctionValue = soldResults.reduce((sum, r) => sum + r.finalPrice, 0);
     const highestSale = soldResults.length > 0
       ? soldResults.reduce((max, r) => r.finalPrice > max.finalPrice ? r : max, soldResults[0])
       : null;
 
-    const bidders = await Bidder.find().sort({ totalSpent: -1 });
+    const bidders = await Bidder.find(filter).sort({ totalSpent: -1 });
 
     res.json({
       totalPlayers,

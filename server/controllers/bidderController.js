@@ -1,9 +1,11 @@
 const Bidder = require('../models/Bidder');
+const { getActiveSeasonId, getSeasonFilter } = require('../utils/seasonHelper');
 
 // Get all bidders
 exports.getBidders = async (req, res, next) => {
   try {
-    const bidders = await Bidder.find().sort({ bidderNumber: 1 });
+    const filter = await getSeasonFilter();
+    const bidders = await Bidder.find(filter).sort({ bidderNumber: 1 });
     res.json(bidders);
   } catch (error) {
     next(error);
@@ -26,7 +28,10 @@ exports.createBidder = async (req, res, next) => {
   try {
     const { name, bidderNumber, team, password, budget } = req.body;
 
+    const auctionSeasonId = await getActiveSeasonId();
+
     const bidder = await Bidder.create({
+      auctionSeasonId,
       name,
       bidderNumber,
       team,

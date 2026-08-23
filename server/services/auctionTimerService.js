@@ -3,6 +3,7 @@ const Player = require('../models/Player');
 const Bidder = require('../models/Bidder');
 const AuctionResult = require('../models/AuctionResult');
 const Settings = require('../models/Settings');
+const { getActiveSeasonId, getSeasonFilter } = require('../utils/seasonHelper');
 
 class AuctionTimerService {
   constructor(io) {
@@ -18,6 +19,20 @@ class AuctionTimerService {
     return settings;
   }
 
+  // Calculate dynamic bid increment based on current bid amount and tier thresholds
+  getBidIncrement(currentBidAmount, settings) {
+    const tier1Threshold = settings.bidIncrementTier1Threshold || 500000;
+    const tier2Threshold = settings.bidIncrementTier2Threshold || 1000000;
+
+    if (currentBidAmount >= tier2Threshold) {
+      return settings.bidIncrementTier3 || 30000;
+    } else if (currentBidAmount >= tier1Threshold) {
+      return settings.bidIncrementTier2 || 20000;
+    } else {
+      return settings.bidIncrementTier1 || 10000;
+    }
+  }
+
   getStage(remainingTime, totalDuration) {
     if (remainingTime <= 0) return 'SOLD';
     const thirdDuration = totalDuration / 3;
@@ -27,8 +42,10 @@ class AuctionTimerService {
   }
 
   async startAuction(playerId) {
+    const seasonFilter = await getSeasonFilter();
+
     // Check if there's already a live auction
-    let auction = await Auction.findOne({ status: { $in: ['LIVE', 'PAUSED'] } });
+    let auction = await Auction.findOne({ ...seasonFilter, status: { $in: ['LIVE', 'PAUSED'] } });
     if (auction) {
       throw new Error('Another auction is already in progress');
     }
@@ -52,13 +69,17 @@ class AuctionTimerService {
       auction.status = 'LIVE';
       await auction.save();
     } else {
+      // Calculate dynamic increment based on basePrice tier
+      const auctionSeasonId = await getActiveSeasonId();
+      const dynamicIncrement = this.getBidIncrement(player.basePrice, settings);
       auction = await Auction.create({
+        auctionSeasonId,
         playerId: player._id,
         startTime: now,
         endTime,
         currentBid: 0,
         basePrice: player.basePrice,
-        bidIncrement: settings.bidIncrement,
+        bidIncrement: dynamicIncrement,
         stage: 'GOING_ONCE',
         status: 'LIVE',
       });
@@ -172,7 +193,9 @@ class AuctionTimerService {
       }
 
       // Save result
+      const auctionSeasonId = await getActiveSeasonId();
       await AuctionResult.create({
+        auctionSeasonId,
         playerId: auction.playerId,
         playerName: player ? player.name : 'Unknown',
         playerNumber: player ? player.playerNumber : 0,
@@ -254,7 +277,9 @@ class AuctionTimerService {
       }
 
       // Save auction result
+      const auctionSeasonId = await getActiveSeasonId();
       await AuctionResult.create({
+        auctionSeasonId,
         playerId: auction.playerId,
         playerName: player ? player.name : 'Unknown',
         playerNumber: player ? player.playerNumber : 0,
@@ -294,7 +319,9 @@ class AuctionTimerService {
         await player.save();
       }
 
+      const auctionSeasonId = await getActiveSeasonId();
       await AuctionResult.create({
+        auctionSeasonId,
         playerId: auction.playerId,
         playerName: player ? player.name : 'Unknown',
         playerNumber: player ? player.playerNumber : 0,
@@ -328,7 +355,8 @@ class AuctionTimerService {
     if (settings.autoAuction) {
       this.autoAuctionTimeout = setTimeout(async () => {
         try {
-          const nextPlayer = await Player.findOne({ status: 'UPCOMING' }).sort({ auctionOrder: 1 });
+          const seasonFilter = await getSeasonFilter();
+          const nextPlayer = await Player.findOne({ ...seasonFilter, status: 'UPCOMING' }).sort({ auctionOrder: 1 });
           if (nextPlayer) {
             await this.startAuction(nextPlayer._id);
           }
@@ -404,18 +432,21 @@ class AuctionTimerService {
   }
 
   async getFullState() {
+    const seasonFilter = await getSeasonFilter();
+
     const auction = await Auction.findOne({
+      ...seasonFilter,
       status: { $in: ['UPCOMING', 'LIVE', 'PAUSED'] }
     }).populate('playerId');
 
-    const nextPlayer = await Player.findOne({ status: 'UPCOMING' }).sort({ auctionOrder: 1 });
-    const playerQueue = await Player.find({ status: 'UPCOMING' }).sort({ auctionOrder: 1 });
-    const bidders = await Bidder.find({ status: 'ACTIVE' }).sort({ bidderNumber: 1 });
+    const nextPlayer = await Player.findOne({ ...seasonFilter, status: 'UPCOMING' }).sort({ auctionOrder: 1 });
+    const playerQueue = await Player.find({ ...seasonFilter, status: 'UPCOMING' }).sort({ auctionOrder: 1 });
+    const bidders = await Bidder.find({ ...seasonFilter, status: 'ACTIVE' }).sort({ bidderNumber: 1 });
     const settings = await this.getSettings();
 
     // Count players
-    const totalPlayers = await Player.countDocuments();
-    const completedPlayers = await Player.countDocuments({ status: { $in: ['SOLD', 'UNSOLD'] } });
+    const totalPlayers = await Player.countDocuments(seasonFilter);
+    const completedPlayers = await Player.countDocuments({ ...seasonFilter, status: { $in: ['SOLD', 'UNSOLD'] } });
 
     let auctionData = null;
     let bids = [];
@@ -455,21 +486,26 @@ class AuctionTimerService {
       settings,
       totalPlayers,
       completedPlayers,
+      breakMode: settings.breakMode || false,
+      breakMessage: settings.breakMessage || '',
     };
   }
 
   async loadNextPlayer() {
-    let auction = await Auction.findOne({ status: { $in: ['UPCOMING', 'LIVE', 'PAUSED'] } });
+    const seasonFilter = await getSeasonFilter();
+    let auction = await Auction.findOne({ ...seasonFilter, status: { $in: ['UPCOMING', 'LIVE', 'PAUSED'] } });
     if (auction) {
       return await this.getFullState(); // Already loaded or active
     }
 
-    const nextPlayer = await Player.findOne({ status: 'UPCOMING' }).sort({ auctionOrder: 1 });
+    const nextPlayer = await Player.findOne({ ...seasonFilter, status: 'UPCOMING' }).sort({ auctionOrder: 1 });
     if (!nextPlayer) {
       throw new Error('No more players available');
     }
 
+    const auctionSeasonId = await getActiveSeasonId();
     auction = await Auction.create({
+      auctionSeasonId,
       playerId: nextPlayer._id,
       basePrice: nextPlayer.basePrice,
       status: 'UPCOMING',
@@ -487,20 +523,23 @@ class AuctionTimerService {
   }
 
   async loadSpecificPlayer(playerId) {
-    let liveAuction = await Auction.findOne({ status: { $in: ['LIVE', 'PAUSED'] } });
+    const seasonFilter = await getSeasonFilter();
+    let liveAuction = await Auction.findOne({ ...seasonFilter, status: { $in: ['LIVE', 'PAUSED'] } });
     if (liveAuction) {
       throw new Error('An auction is currently in progress. Complete or reset it first.');
     }
 
-    // Clear any pending upcoming auction
-    await Auction.deleteMany({ status: 'UPCOMING' });
+    // Clear any pending upcoming auction in the current season
+    await Auction.deleteMany({ ...seasonFilter, status: 'UPCOMING' });
 
     const player = await Player.findById(playerId);
     if (!player || player.status !== 'UPCOMING') {
       throw new Error('Player not found or not available');
     }
 
+    const auctionSeasonId = await getActiveSeasonId();
     const auction = await Auction.create({
+      auctionSeasonId,
       playerId: player._id,
       basePrice: player.basePrice,
       status: 'UPCOMING',
@@ -514,6 +553,30 @@ class AuctionTimerService {
     this.io.emit('auction:nextPlayer', fullState);
     this.io.emit('auction:state', fullState);
 
+    return fullState;
+  }
+
+  async startBreak(message) {
+    const settings = await this.getSettings();
+    settings.breakMode = true;
+    settings.breakMessage = message || 'Break';
+    await settings.save();
+
+    const fullState = await this.getFullState();
+    this.io.emit('auction:breakStarted', fullState);
+    this.io.emit('auction:state', fullState);
+    return fullState;
+  }
+
+  async endBreak() {
+    const settings = await this.getSettings();
+    settings.breakMode = false;
+    settings.breakMessage = '';
+    await settings.save();
+
+    const fullState = await this.getFullState();
+    this.io.emit('auction:breakEnded', fullState);
+    this.io.emit('auction:state', fullState);
     return fullState;
   }
 

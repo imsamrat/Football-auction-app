@@ -7,3 +7,4 @@ export const updatePlayer = (id, data) => api.put(`/players/${id}`, data);
 export const deletePlayer = (id) => api.delete(`/players/${id}`);
 export const reorderPlayers = (orders) => api.put('/players/reorder', { orders });
 export const getPlayerQueue = () => api.get('/players/queue');
+export const revertPlayer = (id) => api.put(`/players/${id}/revert`);

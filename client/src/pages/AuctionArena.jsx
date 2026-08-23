@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Radio, Users, Maximize, Minimize } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Radio, Users, Maximize, Minimize, Coffee } from 'lucide-react';
 import { useAuction } from '../context/AuctionContext';
 import PlayerCard from '../components/PlayerCard';
 import AuctionPanel from '../components/AuctionPanel';
@@ -14,7 +14,7 @@ const AuctionArena = () => {
   const {
     currentAuction, currentPlayer, isLive, isPaused,
     remainingTime, stage, totalPlayers, completedPlayers,
-    nextPlayer, bidders,
+    nextPlayer, bidders, breakMode, breakMessage,
   } = useAuction();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -44,6 +44,65 @@ const AuctionArena = () => {
     <div ref={arenaRef} className="min-h-screen bg-dark-300 overflow-y-auto">
       {/* Sold/Unsold overlay */}
       <SoldOverlay />
+
+      {/* Break mode overlay */}
+      <AnimatePresence>
+        {breakMode && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}
+          >
+            {/* Animated background dots */}
+            <div className="absolute inset-0 overflow-hidden opacity-10">
+              <div className="absolute inset-0" style={{
+                backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)',
+                backgroundSize: '30px 30px',
+              }} />
+            </div>
+
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: 'spring', damping: 20 }}
+              className="text-center z-10 px-8"
+            >
+              <motion.div
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+              >
+                <Coffee className="w-20 h-20 mx-auto mb-6 text-yellow-400" />
+              </motion.div>
+              <h2 className="text-5xl sm:text-6xl font-display font-black text-white mb-4 tracking-tight">
+                {breakMessage}
+              </h2>
+              <p className="text-xl text-gray-400 font-medium">
+                Auction will resume shortly
+              </p>
+              <div className="mt-8 flex items-center justify-center gap-2">
+                <motion.span
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{ repeat: Infinity, duration: 1.5, delay: 0 }}
+                  className="w-3 h-3 bg-yellow-400 rounded-full"
+                />
+                <motion.span
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{ repeat: Infinity, duration: 1.5, delay: 0.3 }}
+                  className="w-3 h-3 bg-yellow-400 rounded-full"
+                />
+                <motion.span
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{ repeat: Infinity, duration: 1.5, delay: 0.6 }}
+                  className="w-3 h-3 bg-yellow-400 rounded-full"
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Top status bar */}
       <div className="bg-dark-100/80 backdrop-blur-sm border-b border-dark-50/50 px-4 py-2.5">

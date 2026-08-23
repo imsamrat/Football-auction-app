@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Users, DollarSign, TrendingUp, BarChart3 } from 'lucide-react';
+import { Trophy, Users, DollarSign, TrendingUp, BarChart3, Search, Filter } from 'lucide-react';
 import { getStats } from '../services/auctionService';
 import { getResults } from '../services/auctionService';
 import { formatCurrency, getStatusBadge } from '../utils/helpers';
@@ -9,6 +9,9 @@ const ResultsPage = () => {
   const [stats, setStats] = useState(null);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [winnerFilter, setWinnerFilter] = useState('ALL');
 
   useEffect(() => { loadData(); }, []);
 
@@ -23,6 +26,10 @@ const ResultsPage = () => {
       setLoading(false);
     }
   };
+
+  const uniqueWinners = useMemo(() => {
+    return Array.from(new Set(results.map(r => r.bidderName).filter(Boolean))).sort();
+  }, [results]);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
 
@@ -81,6 +88,45 @@ const ResultsPage = () => {
         </motion.div>
       )}
 
+      {/* Filters */}
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="input-field pl-10"
+            placeholder="Search by player name, number, or winner..."
+          />
+        </div>
+        <div className="relative md:w-48">
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="input-field pl-10 appearance-none"
+          >
+            <option value="ALL">All Status</option>
+            <option value="SOLD">Sold</option>
+            <option value="UNSOLD">Unsold</option>
+          </select>
+        </div>
+        <div className="relative md:w-48">
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+          <select
+            value={winnerFilter}
+            onChange={(e) => setWinnerFilter(e.target.value)}
+            className="input-field pl-10 appearance-none"
+          >
+            <option value="ALL">All Winners</option>
+            {uniqueWinners.map(winner => (
+              <option key={winner} value={winner}>{winner}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {/* Results table */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -101,7 +147,14 @@ const ResultsPage = () => {
               </tr>
             </thead>
             <tbody>
-              {results.map((r) => (
+              {results.filter(r => {
+                const matchSearch = r.playerName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                    r.bidderName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                    r.playerNumber?.toString().includes(searchTerm);
+                const matchStatus = statusFilter === 'ALL' || r.status === statusFilter;
+                const matchWinner = winnerFilter === 'ALL' || r.bidderName === winnerFilter;
+                return matchSearch && matchStatus && matchWinner;
+              }).map((r) => (
                 <tr key={r._id} className="border-b border-dark-50/30 hover:bg-dark-200/30 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
@@ -120,10 +173,17 @@ const ResultsPage = () => {
                   </td>
                 </tr>
               ))}
-              {results.length === 0 && (
+              {results.filter(r => {
+                const matchSearch = r.playerName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                    r.bidderName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                    r.playerNumber?.toString().includes(searchTerm);
+                const matchStatus = statusFilter === 'ALL' || r.status === statusFilter;
+                const matchWinner = winnerFilter === 'ALL' || r.bidderName === winnerFilter;
+                return matchSearch && matchStatus && matchWinner;
+              }).length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center text-gray-500">
-                    No auction results yet
+                    No results match your filters.
                   </td>
                 </tr>
               )}

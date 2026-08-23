@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const bidSchema = new mongoose.Schema({
+  auctionSeasonId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'AuctionSeason',
+    index: true,
+  },
   playerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Player',

@@ -7,18 +7,33 @@ import { useAuction } from '../context/AuctionContext';
 import { formatCurrency } from '../utils/helpers';
 import toast from 'react-hot-toast';
 
+// Calculate dynamic bid increment based on current bid amount and tier thresholds
+function getDynamicIncrement(currentBidAmount, settings) {
+  const tier1Threshold = settings?.bidIncrementTier1Threshold || 500000;
+  const tier2Threshold = settings?.bidIncrementTier2Threshold || 1000000;
+
+  if (currentBidAmount >= tier2Threshold) {
+    return settings?.bidIncrementTier3 || 30000;
+  } else if (currentBidAmount >= tier1Threshold) {
+    return settings?.bidIncrementTier2 || 20000;
+  } else {
+    return settings?.bidIncrementTier1 || 10000;
+  }
+}
+
 const BidButton = () => {
   const { user, isBidder, isAuthenticated } = useAuth();
   const { emit } = useSocket();
-  const { currentAuction, isLive } = useAuction();
+  const { currentAuction, isLive, settings, bidders } = useAuction();
   const [showModal, setShowModal] = useState(false);
   const [bidAmount, setBidAmount] = useState('');
   const [loading, setLoading] = useState(false);
 
   const currentBid = currentAuction?.currentBid || 0;
   const basePrice = currentAuction?.basePrice || 0;
-  const bidIncrement = currentAuction?.bidIncrement || 500;
-  const nextBid = currentBid > 0 ? currentBid + bidIncrement : basePrice + bidIncrement;
+  const effectiveBid = currentBid > 0 ? currentBid : basePrice;
+  const dynamicIncrement = getDynamicIncrement(effectiveBid, settings);
+  const nextBid = currentBid > 0 ? currentBid + dynamicIncrement : basePrice + dynamicIncrement;
 
   const handleRaiseHand = () => {
     if (!isAuthenticated || !isBidder) {
@@ -29,6 +44,15 @@ const BidButton = () => {
       toast.error('No active auction');
       return;
     }
+
+    const currentBidder = bidders?.find(b => b._id === user?.id || b.id === user?.id);
+    const budget = currentBidder?.remainingBudget || 0;
+
+    if (nextBid > budget) {
+      toast.error(`Insufficient budget. You need at least ${formatCurrency(nextBid)}`);
+      return;
+    }
+
     setBidAmount(nextBid.toString());
     setShowModal(true);
   };
@@ -56,9 +80,22 @@ const BidButton = () => {
     });
   };
 
+  const currentBidder = bidders?.find(b => b._id === user?.id || b.id === user?.id);
+  const budget = currentBidder?.remainingBudget || 0;
+
+  // Dynamic increment for +/- based on current bidAmount in the modal
+  const getModalIncrement = (amount) => {
+    return getDynamicIncrement(amount, settings);
+  };
+
+  // Quick bid jumps relative to effective bid value
   const baseValue = currentBid > 0 ? currentBid : basePrice;
-  // Use exact jump amounts
-  const quickBids = [10000, 20000, 50000, 100000];
+  const quickBids = [
+    dynamicIncrement,
+    dynamicIncrement * 2,
+    dynamicIncrement * 5,
+    dynamicIncrement * 10,
+  ];
 
   if (!isLive) return null;
 
@@ -113,14 +150,15 @@ const BidButton = () => {
                   <span className="font-bold text-primary">{user?.name}</span>
                 </div>
 
-                {/* Bid input via +/- */}
+                {/* Bid input via +/- with dynamic increment */}
                 <div>
                   <label className="block text-sm text-gray-400 mb-2 text-center">Bid Amount</label>
                   <div className="flex items-center justify-between bg-dark-200 border border-dark-50/50 rounded-xl p-2">
                     <button
                       onClick={() => {
                         const val = parseInt(bidAmount) || nextBid;
-                        const newVal = val - 10000;
+                        const inc = getModalIncrement(val);
+                        const newVal = val - inc;
                         if (newVal >= nextBid) {
                           setBidAmount(newVal.toString());
                         } else {
@@ -137,7 +175,13 @@ const BidButton = () => {
                     <button
                       onClick={() => {
                         const val = parseInt(bidAmount) || nextBid;
-                        setBidAmount((val + 10000).toString());
+                        const inc = getModalIncrement(val);
+                        const newVal = val + inc;
+                        if (newVal <= budget) {
+                          setBidAmount(newVal.toString());
+                        } else {
+                          toast.error(`Cannot exceed your budget of ${formatCurrency(budget)}`);
+                        }
                       }}
                       className="p-3 bg-dark-300 hover:bg-dark-50 rounded-lg text-gray-300 transition-colors"
                     >
@@ -145,7 +189,7 @@ const BidButton = () => {
                     </button>
                   </div>
                   <p className="text-xs text-gray-500 mt-2 text-center">
-                    Minimum: {formatCurrency(nextBid)}
+                    Minimum: {formatCurrency(nextBid)} · Increment: {formatCurrency(getModalIncrement(parseInt(bidAmount) || effectiveBid))}
                   </p>
                 </div>
 
@@ -156,7 +200,13 @@ const BidButton = () => {
                     return (
                       <button
                         key={jump}
-                        onClick={() => setBidAmount(amount.toString())}
+                        onClick={() => {
+                          if (amount <= budget) {
+                            setBidAmount(amount.toString());
+                          } else {
+                            toast.error(`Cannot exceed your budget of ${formatCurrency(budget)}`);
+                          }
+                        }}
                         className={`py-2.5 rounded-xl text-sm font-bold transition-all ${
                           parseInt(bidAmount) === amount
                             ? 'bg-primary text-white'

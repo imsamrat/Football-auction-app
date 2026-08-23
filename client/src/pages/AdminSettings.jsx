@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Save, RotateCcw } from 'lucide-react';
+import { Save, RotateCcw, TrendingUp, DollarSign } from 'lucide-react';
 import { getSettings, updateSettings } from '../services/settingsService';
 import toast from 'react-hot-toast';
+
+const formatPreview = (amount, symbol) => `${symbol || '$'}${Number(amount || 0).toLocaleString('en-US')}`;
 
 const AdminSettings = () => {
   const [settings, setSettings] = useState(null);
@@ -37,6 +39,8 @@ const AdminSettings = () => {
 
   if (loading) return <div className="flex justify-center py-20"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
 
+  const sym = settings.currencySymbol || '$';
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -59,15 +63,112 @@ const AdminSettings = () => {
               <label className="block text-sm text-gray-400 mb-1">Duration (seconds)</label>
               <input type="number" value={settings.auctionDuration} onChange={(e) => setSettings({...settings, auctionDuration: parseInt(e.target.value)})} className="input-field" min="10" max="120" />
             </div>
+          </div>
+        </motion.div>
+
+        {/* Currency Settings */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="glass-card p-6">
+          <h3 className="font-display font-bold text-white mb-4 flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-primary" /> Currency
+          </h3>
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Bid Increment (৳)</label>
-              <input type="number" value={settings.bidIncrement} onChange={(e) => setSettings({...settings, bidIncrement: parseInt(e.target.value)})} className="input-field" min="100" />
+              <label className="block text-sm text-gray-400 mb-1">Currency Symbol</label>
+              <input
+                type="text"
+                value={settings.currencySymbol || '$'}
+                onChange={(e) => setSettings({...settings, currencySymbol: e.target.value})}
+                className="input-field w-32"
+                maxLength={5}
+                placeholder="$"
+              />
+              <p className="text-xs text-gray-500 mt-1">Preview: {formatPreview(150000, settings.currencySymbol)}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {['$', '৳', '₹', '€', '£', '¥'].map(s => (
+                <button
+                  key={s}
+                  onClick={() => setSettings({...settings, currencySymbol: s})}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                    (settings.currencySymbol || '$') === s
+                      ? 'bg-primary text-white'
+                      : 'bg-dark-200 text-gray-400 hover:bg-dark-300 border border-dark-50'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Tiered Bid Increment */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-6 lg:col-span-2">
+          <h3 className="font-display font-bold text-white mb-4 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-primary" /> Bid Increment Tiers
+          </h3>
+          <p className="text-xs text-gray-500 mb-4">
+            The bid +/- amount changes automatically based on the current bid level
+          </p>
+
+          <div className="space-y-4">
+            {/* Tier 1 */}
+            <div className="bg-dark-200/50 rounded-xl p-4 border border-green-500/20">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-2 h-2 bg-green-400 rounded-full" />
+                <span className="text-sm font-bold text-green-400">Tier 1</span>
+                <span className="text-xs text-gray-500">— Below {formatPreview(settings.bidIncrementTier1Threshold || 500000, sym)}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Increment ({sym})</label>
+                  <input type="number" value={settings.bidIncrementTier1 || 10000} onChange={(e) => setSettings({...settings, bidIncrementTier1: parseInt(e.target.value) || 0})} className="input-field" min="100" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Up to ({sym})</label>
+                  <input type="number" value={settings.bidIncrementTier1Threshold || 500000} onChange={(e) => setSettings({...settings, bidIncrementTier1Threshold: parseInt(e.target.value) || 0})} className="input-field" min="1000" />
+                </div>
+              </div>
+            </div>
+
+            {/* Tier 2 */}
+            <div className="bg-dark-200/50 rounded-xl p-4 border border-yellow-500/20">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-2 h-2 bg-yellow-400 rounded-full" />
+                <span className="text-sm font-bold text-yellow-400">Tier 2</span>
+                <span className="text-xs text-gray-500">— {formatPreview(settings.bidIncrementTier1Threshold || 500000, sym)} to {formatPreview(settings.bidIncrementTier2Threshold || 1000000, sym)}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Increment ({sym})</label>
+                  <input type="number" value={settings.bidIncrementTier2 || 20000} onChange={(e) => setSettings({...settings, bidIncrementTier2: parseInt(e.target.value) || 0})} className="input-field" min="100" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Up to ({sym})</label>
+                  <input type="number" value={settings.bidIncrementTier2Threshold || 1000000} onChange={(e) => setSettings({...settings, bidIncrementTier2Threshold: parseInt(e.target.value) || 0})} className="input-field" min="1000" />
+                </div>
+              </div>
+            </div>
+
+            {/* Tier 3 */}
+            <div className="bg-dark-200/50 rounded-xl p-4 border border-red-500/20">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-2 h-2 bg-red-400 rounded-full" />
+                <span className="text-sm font-bold text-red-400">Tier 3</span>
+                <span className="text-xs text-gray-500">— Above {formatPreview(settings.bidIncrementTier2Threshold || 1000000, sym)}</span>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Increment ({sym})</label>
+                  <input type="number" value={settings.bidIncrementTier3 || 30000} onChange={(e) => setSettings({...settings, bidIncrementTier3: parseInt(e.target.value) || 0})} className="input-field" min="100" />
+                </div>
+              </div>
             </div>
           </div>
         </motion.div>
 
         {/* Bid Extension */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-6">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card p-6">
           <h3 className="font-display font-bold text-white mb-4">Bid Extension</h3>
           <div className="space-y-4">
             <label className="flex items-center gap-3 cursor-pointer">
@@ -107,7 +208,7 @@ const AdminSettings = () => {
         </motion.div>
 
         {/* Sound Settings */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="glass-card p-6">
           <h3 className="font-display font-bold text-white mb-4">Sound Effects</h3>
           <div className="space-y-3">
             <label className="flex items-center gap-3 cursor-pointer">

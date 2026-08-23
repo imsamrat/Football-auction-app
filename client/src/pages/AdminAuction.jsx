@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, RotateCcw, SkipForward, CheckCircle, XCircle, ChevronRight, Radio, Search } from 'lucide-react';
+import { Play, Pause, RotateCcw, SkipForward, CheckCircle, XCircle, ChevronRight, Radio, Search, Coffee, BookOpen } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 import { useAuction } from '../context/AuctionContext';
 import { formatCurrency, formatTime, getStageLabel, getStageColor, getPlayerInitials, getPositionColor } from '../utils/helpers';
@@ -15,10 +15,12 @@ const AdminAuction = () => {
     currentAuction, currentPlayer, isLive, isPaused,
     remainingTime, stage, bids, bidders,
     nextPlayer, playerQueue, totalPlayers, completedPlayers,
-    settings
+    settings, breakMode, breakMessage
   } = useAuction();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [customBreakMsg, setCustomBreakMsg] = useState('');
+  const [showCustomBreak, setShowCustomBreak] = useState(false);
 
   const isLoaded = currentAuction?.status === 'UPCOMING';
 
@@ -155,6 +157,84 @@ const AdminAuction = () => {
               <button onClick={() => emitAction('auction:nextPlayer')} className="w-full mt-3 btn-dark flex items-center justify-center gap-2">
                 <ChevronRight className="w-4 h-4" /> LOAD NEXT PLAYER
               </button>
+            )}
+          </div>
+
+          {/* Break controls */}
+          <div className="glass-card p-6">
+            <h3 className="text-sm text-gray-400 uppercase tracking-wider mb-4 font-bold flex items-center gap-2">
+              <Coffee className="w-4 h-4" /> Break Mode
+            </h3>
+
+            {breakMode ? (
+              <div className="space-y-3">
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-center">
+                  <p className="text-yellow-400 font-bold text-lg">🔔 {breakMessage}</p>
+                  <p className="text-xs text-gray-400 mt-1">Break is active and visible to all viewers</p>
+                </div>
+                <button
+                  onClick={() => emitAction('auction:endBreak')}
+                  className="w-full bg-green-500/20 text-green-400 hover:bg-green-500/30 font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+                >
+                  <Play className="w-4 h-4" /> END BREAK
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: '🤲 Prayer Break', msg: 'Prayer Break' },
+                    { label: '🍕 Snacks Break', msg: 'Snacks Break' },
+                    { label: '🍽️ Lunch Break', msg: 'Lunch Break' },
+                    { label: '🔧 Technical Break', msg: 'Technical Break' },
+                  ].map((b) => (
+                    <button
+                      key={b.msg}
+                      onClick={() => emitAction('auction:startBreak', { message: b.msg })}
+                      className="bg-dark-200 text-gray-300 hover:bg-dark-300 text-sm font-semibold py-2.5 rounded-xl transition-all border border-dark-50 hover:border-yellow-500/30 hover:text-yellow-400"
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+                {showCustomBreak ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={customBreakMsg}
+                      onChange={(e) => setCustomBreakMsg(e.target.value)}
+                      placeholder="Custom break message..."
+                      className="flex-1 bg-dark-200 border border-dark-50/50 rounded-lg py-2 px-3 text-sm text-white placeholder-gray-500 focus:border-primary/50 focus:outline-none transition-colors"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && customBreakMsg.trim()) {
+                          emitAction('auction:startBreak', { message: customBreakMsg.trim() });
+                          setCustomBreakMsg('');
+                          setShowCustomBreak(false);
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (customBreakMsg.trim()) {
+                          emitAction('auction:startBreak', { message: customBreakMsg.trim() });
+                          setCustomBreakMsg('');
+                          setShowCustomBreak(false);
+                        }
+                      }}
+                      className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 font-bold px-4 rounded-xl transition-all text-sm"
+                    >
+                      Start
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowCustomBreak(true)}
+                    className="w-full bg-dark-200 text-gray-400 hover:bg-dark-300 text-sm py-2 rounded-xl transition-all border border-dark-50"
+                  >
+                    ✏️ Custom Break...
+                  </button>
+                )}
+              </div>
             )}
           </div>
 

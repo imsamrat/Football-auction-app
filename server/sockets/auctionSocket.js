@@ -193,6 +193,29 @@ module.exports = function setupAuctionSocket(io) {
       }
     });
 
+    socket.on('auction:startBreak', async (data, callback) => {
+      if (!requireAdmin(callback)) return;
+      try {
+        const { message } = data;
+        await auctionTimerService.startBreak(message);
+        if (callback) callback({ success: true });
+      } catch (error) {
+        socket.emit('auction:error', { message: error.message });
+        if (callback) callback({ error: error.message });
+      }
+    });
+
+    socket.on('auction:endBreak', async (data, callback) => {
+      if (!requireAdmin(callback)) return;
+      try {
+        await auctionTimerService.endBreak();
+        if (callback) callback({ success: true });
+      } catch (error) {
+        socket.emit('auction:error', { message: error.message });
+        if (callback) callback({ error: error.message });
+      }
+    });
+
     socket.on('disconnect', () => {
       console.log(`🔌 Client disconnected: ${socket.id}`);
     });
