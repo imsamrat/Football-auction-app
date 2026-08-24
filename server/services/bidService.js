@@ -6,12 +6,12 @@ const { getActiveSeasonId } = require('../utils/seasonHelper');
 
 // Calculate dynamic bid increment based on current bid amount and tier thresholds
 function getBidIncrement(currentBidAmount, settings) {
-  const tier1Threshold = settings.bidIncrementTier1Threshold || 500000;
-  const tier2Threshold = settings.bidIncrementTier2Threshold || 1000000;
+  const tier3Lower = settings.bidIncrementTier3Lower ?? (settings.bidIncrementTier2Threshold || 1000000);
+  const tier2Lower = settings.bidIncrementTier2Lower ?? (settings.bidIncrementTier1Threshold || 500000);
 
-  if (currentBidAmount >= tier2Threshold) {
+  if (currentBidAmount >= tier3Lower) {
     return settings.bidIncrementTier3 || 30000;
-  } else if (currentBidAmount >= tier1Threshold) {
+  } else if (currentBidAmount >= tier2Lower) {
     return settings.bidIncrementTier2 || 20000;
   } else {
     return settings.bidIncrementTier1 || 10000;

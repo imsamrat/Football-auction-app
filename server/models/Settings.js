@@ -29,7 +29,15 @@ const settingsSchema = new mongoose.Schema({
     type: Number,
     default: 500000,
   },
+  bidIncrementTier2Lower: {
+    type: Number,
+    default: 500000,
+  },
   bidIncrementTier2Threshold: {
+    type: Number,
+    default: 1000000,
+  },
+  bidIncrementTier3Lower: {
     type: Number,
     default: 1000000,
   },

@@ -136,12 +136,16 @@ const AdminSettings = () => {
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-2 h-2 bg-yellow-400 rounded-full" />
                 <span className="text-sm font-bold text-yellow-400">Tier 2</span>
-                <span className="text-xs text-gray-500">— {formatPreview(settings.bidIncrementTier1Threshold || 500000, sym)} to {formatPreview(settings.bidIncrementTier2Threshold || 1000000, sym)}</span>
+                <span className="text-xs text-gray-500">— {formatPreview(settings.bidIncrementTier2Lower ?? settings.bidIncrementTier1Threshold ?? 500000, sym)} to {formatPreview(settings.bidIncrementTier2Threshold || 1000000, sym)}</span>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Increment ({sym})</label>
                   <input type="number" value={settings.bidIncrementTier2 || 20000} onChange={(e) => setSettings({...settings, bidIncrementTier2: parseInt(e.target.value) || 0})} className="input-field" min="100" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">From ({sym})</label>
+                  <input type="number" value={settings.bidIncrementTier2Lower ?? settings.bidIncrementTier1Threshold ?? 500000} onChange={(e) => setSettings({...settings, bidIncrementTier2Lower: parseInt(e.target.value) || 0})} className="input-field" min="1000" />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Up to ({sym})</label>
@@ -155,12 +159,16 @@ const AdminSettings = () => {
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-2 h-2 bg-red-400 rounded-full" />
                 <span className="text-sm font-bold text-red-400">Tier 3</span>
-                <span className="text-xs text-gray-500">— Above {formatPreview(settings.bidIncrementTier2Threshold || 1000000, sym)}</span>
+                <span className="text-xs text-gray-500">— Above {formatPreview(settings.bidIncrementTier3Lower ?? settings.bidIncrementTier2Threshold ?? 1000000, sym)}</span>
               </div>
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Increment ({sym})</label>
                   <input type="number" value={settings.bidIncrementTier3 || 30000} onChange={(e) => setSettings({...settings, bidIncrementTier3: parseInt(e.target.value) || 0})} className="input-field" min="100" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">From ({sym})</label>
+                  <input type="number" value={settings.bidIncrementTier3Lower ?? settings.bidIncrementTier2Threshold ?? 1000000} onChange={(e) => setSettings({...settings, bidIncrementTier3Lower: parseInt(e.target.value) || 0})} className="input-field" min="1000" />
                 </div>
               </div>
             </div>
