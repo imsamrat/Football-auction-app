@@ -815,22 +815,26 @@ const AdminFixtures = () => {
       {/* Delete All Confirmation Modal */}
       {confirmDeleteAll && (
         <ConfirmModal
+          isOpen={confirmDeleteAll}
           title="Delete All Fixtures"
           message="This will permanently delete ALL fixtures and match events for this tournament. This cannot be undone."
-          confirmLabel="Delete All"
+          confirmText="Delete All"
+          isDanger={true}
           onConfirm={handleDeleteAll}
-          onCancel={() => setConfirmDeleteAll(false)}
+          onClose={() => setConfirmDeleteAll(false)}
         />
       )}
 
       {/* Delete Single Match Confirmation Modal */}
       {matchToDelete && (
         <ConfirmModal
+          isOpen={!!matchToDelete}
           title="Delete Fixture"
           message={`Are you sure you want to delete Match ${matchToDelete.matchNumber || ''}: ${matchToDelete.homeTeamId?.team || 'Home'} vs ${matchToDelete.awayTeamId?.team || 'Away'}?`}
-          confirmLabel="Delete Fixture"
+          confirmText="Delete Fixture"
+          isDanger={true}
           onConfirm={handleDeleteSingleMatch}
-          onCancel={() => setMatchToDelete(null)}
+          onClose={() => setMatchToDelete(null)}
         />
       )}
     </div>

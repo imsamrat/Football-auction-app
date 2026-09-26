@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Gavel, Radio, Users, Trophy, LogIn, LogOut, LayoutDashboard, Settings } from 'lucide-react';
+import { Gavel, Radio, Users, Trophy, LogIn, LogOut, LayoutDashboard, Settings, Home, Award } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 
@@ -16,11 +16,11 @@ const Navbar = () => {
   };
 
   const publicLinks = [
-    { to: '/', label: 'Home', icon: Gavel },
+    { to: '/', label: 'Home', icon: Home },
+    { to: '/tournament', label: 'Tournament', icon: Trophy },
     { to: '/auction', label: 'Live Auction', icon: Radio },
     { to: '/players', label: 'Players', icon: Users },
-    { to: '/results', label: 'Results', icon: Trophy },
-    { to: '/tournament', label: 'Tournament', icon: Trophy },
+    { to: '/results', label: 'Results', icon: Award },
   ];
 
   return (
@@ -32,12 +32,12 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Gavel className="w-5 h-5 text-white" />
+          <Link to="/" className="flex items-center gap-2.5 group">
+            <div className="w-9 h-9 bg-gradient-to-br from-primary to-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary/25 group-hover:scale-105 transition-transform">
+              <Trophy className="w-5 h-5 text-white" />
             </div>
             <div className="hidden sm:block">
-              <span className="font-display font-bold text-lg text-white">Auction</span>
+              <span className="font-display font-bold text-lg text-white">Kickoff</span>
               <span className="font-display font-bold text-lg text-primary">Arena</span>
             </div>
           </Link>

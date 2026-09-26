@@ -386,11 +386,13 @@ const AdminTournaments = () => {
       {/* Delete Modal */}
       {deleteId && (
         <ConfirmModal
+          isOpen={!!deleteId}
           title="Delete Tournament"
           message="This will permanently delete this tournament and all its fixtures, matches, and events. This action cannot be undone."
-          confirmLabel="Delete"
+          confirmText="Delete"
+          isDanger={true}
           onConfirm={handleDelete}
-          onCancel={() => setDeleteId(null)}
+          onClose={() => setDeleteId(null)}
         />
       )}
     </div>
