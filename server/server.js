@@ -13,6 +13,8 @@ const bidderRoutes = require('./routes/bidderRoutes');
 const auctionRoutes = require('./routes/auctionRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const auctionSeasonRoutes = require('./routes/auctionSeasonRoutes');
+const tournamentRoutes = require('./routes/tournamentRoutes');
+const matchRoutes = require('./routes/matchRoutes');
 
 // Socket handler
 // Socket handler
@@ -48,6 +50,8 @@ app.use('/api/bidders', bidderRoutes);
 app.use('/api/auction', auctionRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/seasons', auctionSeasonRoutes);
+app.use('/api/tournaments', tournamentRoutes);
+app.use('/api/matches', matchRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -63,6 +67,9 @@ const startServer = async () => {
 
   // Setup Socket.IO
   setupAuctionSocket(io);
+
+  // Store io on app for access from controllers
+  app.set('io', io);
 
   server.listen(config.port, () => {
     console.log(`\n🚀 Server running on port ${config.port}`);

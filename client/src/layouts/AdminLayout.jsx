@@ -34,6 +34,9 @@ const AdminLayout = () => {
     { to: '/admin/results', label: 'Results', icon: Trophy },
     { to: '/admin/seasons', label: 'Seasons', icon: Calendar },
     { to: '/admin/settings', label: 'Settings', icon: Settings },
+    { type: 'divider' },
+    { to: '/admin/tournaments', label: 'Tournaments', icon: Trophy },
+    { to: '/admin/fixtures', label: 'Fixtures', icon: Calendar },
   ];
 
   const handleLogout = () => {
@@ -70,7 +73,12 @@ const AdminLayout = () => {
 
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-1">
-          {navItems.map(({ to, label, icon: Icon }) => (
+          {navItems.map((item, idx) => {
+            if (item.type === 'divider') {
+              return <div key={`div-${idx}`} className="border-t border-dark-50/50 my-2" />;
+            }
+            const { to, label, icon: Icon } = item;
+            return (
             <Link
               key={to}
               to={to}
@@ -83,7 +91,8 @@ const AdminLayout = () => {
               <Icon className="w-5 h-5" />
               {label}
             </Link>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Bottom */}
@@ -110,7 +119,7 @@ const AdminLayout = () => {
             <span className="font-display font-bold text-white text-sm">Admin</span>
           </Link>
           <div className="flex items-center gap-1 overflow-x-auto">
-            {navItems.map(({ to, icon: Icon }) => (
+            {navItems.filter(item => !item.type).map(({ to, icon: Icon }) => (
               <Link
                 key={to}
                 to={to}

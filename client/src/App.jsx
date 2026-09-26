@@ -28,6 +28,14 @@ import AdminResults from './pages/AdminResults';
 import AdminSettings from './pages/AdminSettings';
 import AdminSeasons from './pages/AdminSeasons';
 
+// Tournament pages
+import TournamentHome from './pages/TournamentHome';
+import MatchCenter from './pages/MatchCenter';
+import TournamentDisplay from './pages/TournamentDisplay';
+import AdminTournaments from './pages/AdminTournaments';
+import AdminFixtures from './pages/AdminFixtures';
+import AdminMatchControl from './pages/AdminMatchControl';
+
 // Bidder pages
 import BidderDashboard from './pages/BidderDashboard';
 
@@ -44,7 +52,12 @@ function App() {
                 <Route path="/auction" element={<AuctionArena />} />
                 <Route path="/players" element={<PlayersPage />} />
                 <Route path="/results" element={<ResultsPage />} />
+                <Route path="/tournament" element={<TournamentHome />} />
+                <Route path="/tournament/match/:matchId" element={<MatchCenter />} />
               </Route>
+
+              {/* Display route (no layout - fullscreen) */}
+              <Route path="/display" element={<TournamentDisplay />} />
 
               {/* Auth routes (no layout) */}
               <Route path="/admin/login" element={<AdminLogin />} />
@@ -63,6 +76,9 @@ function App() {
                 <Route path="/admin/results" element={<AdminResults />} />
                 <Route path="/admin/settings" element={<AdminSettings />} />
                 <Route path="/admin/seasons" element={<AdminSeasons />} />
+                <Route path="/admin/tournaments" element={<AdminTournaments />} />
+                <Route path="/admin/fixtures" element={<AdminFixtures />} />
+                <Route path="/admin/match-control/:matchId" element={<AdminMatchControl />} />
               </Route>
 
               {/* Bidder routes */}

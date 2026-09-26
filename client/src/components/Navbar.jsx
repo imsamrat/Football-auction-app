@@ -20,6 +20,7 @@ const Navbar = () => {
     { to: '/auction', label: 'Live Auction', icon: Radio },
     { to: '/players', label: 'Players', icon: Users },
     { to: '/results', label: 'Results', icon: Trophy },
+    { to: '/tournament', label: 'Tournament', icon: Trophy },
   ];
 
   return (
