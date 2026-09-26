@@ -349,10 +349,11 @@ exports.getStandings = async (req, res, next) => {
 exports.getTopScorers = async (req, res, next) => {
   try {
     const goals = await MatchEvent.aggregate([
-      { $match: { tournamentId: new (require('mongoose').Types.ObjectId)(req.params.id), type: 'GOAL' } },
+      { $match: { tournamentId: new (require('mongoose').Types.ObjectId)(req.params.id), type: { $in: ['GOAL', 'PENALTY_GOAL'] } } },
       {
         $group: {
-          _id: '$playerId',
+          _id: { $ifNull: ['$playerId', '$playerName'] },
+          playerId: { $first: '$playerId' },
           playerName: { $first: '$playerName' },
           teamId: { $first: '$teamId' },
           goals: { $sum: 1 },
@@ -361,7 +362,7 @@ exports.getTopScorers = async (req, res, next) => {
       },
       {
         $project: {
-          playerId: '$_id',
+          playerId: 1,
           playerName: 1,
           teamId: 1,
           goals: 1,
@@ -403,13 +404,14 @@ exports.getTopAssists = async (req, res, next) => {
       {
         $match: {
           tournamentId: new (require('mongoose').Types.ObjectId)(req.params.id),
-          type: 'GOAL',
-          assistPlayerId: { $ne: null },
+          type: { $in: ['GOAL', 'PENALTY_GOAL'] },
+          assistPlayerName: { $exists: true, $ne: '' },
         }
       },
       {
         $group: {
-          _id: '$assistPlayerId',
+          _id: { $ifNull: ['$assistPlayerId', '$assistPlayerName'] },
+          playerId: { $first: '$assistPlayerId' },
           playerName: { $first: '$assistPlayerName' },
           teamId: { $first: '$teamId' },
           assists: { $sum: 1 },
@@ -418,7 +420,7 @@ exports.getTopAssists = async (req, res, next) => {
       },
       {
         $project: {
-          playerId: '$_id',
+          playerId: 1,
           playerName: 1,
           teamId: 1,
           assists: 1,
@@ -576,7 +578,7 @@ exports.getDashboard = async (req, res, next) => {
     // Match counts
     const totalMatches = await Match.countDocuments({ tournamentId: tournament._id });
     const completedMatches = await Match.countDocuments({ tournamentId: tournament._id, status: 'COMPLETED' });
-    const totalGoals = await MatchEvent.countDocuments({ tournamentId: tournament._id, type: 'GOAL' });
+    const totalGoals = await MatchEvent.countDocuments({ tournamentId: tournament._id, type: { $in: ['GOAL', 'PENALTY_GOAL', 'OWN_GOAL'] } });
 
     res.json({
       tournament,
@@ -594,3 +596,462 @@ exports.getDashboard = async (req, res, next) => {
     next(error);
   }
 };
+
+// Get tournament teams directory with squads and tournament standings
+exports.getTournamentTeamsDirectory = async (req, res, next) => {
+  try {
+    const tournament = await Tournament.findById(req.params.id)
+      .populate({
+        path: 'teams',
+        select: 'name team bidderNumber budget remainingBudget totalSpent playersPurchased',
+        populate: {
+          path: 'playersPurchased.playerId',
+          select: 'name photo position division basePrice rating playerNumber matches goals assists',
+        },
+      });
+    if (!tournament) return res.status(404).json({ message: 'Tournament not found' });
+
+    // Calculate standings for performance context
+    const matches = await Match.find({
+      tournamentId: tournament._id,
+      status: 'COMPLETED',
+    });
+
+    const statsMap = {};
+    for (const team of tournament.teams) {
+      statsMap[team._id.toString()] = {
+        played: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        cleanSheets: 0,
+        points: 0,
+        form: [],
+      };
+    }
+
+    for (const m of matches) {
+      const hId = m.homeTeamId.toString();
+      const aId = m.awayTeamId.toString();
+
+      if (statsMap[hId]) {
+        statsMap[hId].played++;
+        statsMap[hId].goalsFor += m.homeScore;
+        statsMap[hId].goalsAgainst += m.awayScore;
+        if (m.awayScore === 0) statsMap[hId].cleanSheets++;
+        if (m.homeScore > m.awayScore) {
+          statsMap[hId].wins++;
+          statsMap[hId].points += tournament.pointsForWin;
+          statsMap[hId].form.push('W');
+        } else if (m.homeScore < m.awayScore) {
+          statsMap[hId].losses++;
+          statsMap[hId].points += tournament.pointsForLoss;
+          statsMap[hId].form.push('L');
+        } else {
+          statsMap[hId].draws++;
+          statsMap[hId].points += tournament.pointsForDraw;
+          statsMap[hId].form.push('D');
+        }
+      }
+
+      if (statsMap[aId]) {
+        statsMap[aId].played++;
+        statsMap[aId].goalsFor += m.awayScore;
+        statsMap[aId].goalsAgainst += m.homeScore;
+        if (m.homeScore === 0) statsMap[aId].cleanSheets++;
+        if (m.awayScore > m.homeScore) {
+          statsMap[aId].wins++;
+          statsMap[aId].points += tournament.pointsForWin;
+          statsMap[aId].form.push('W');
+        } else if (m.awayScore < m.homeScore) {
+          statsMap[aId].losses++;
+          statsMap[aId].points += tournament.pointsForLoss;
+          statsMap[aId].form.push('L');
+        } else {
+          statsMap[aId].draws++;
+          statsMap[aId].points += tournament.pointsForDraw;
+          statsMap[aId].form.push('D');
+        }
+      }
+    }
+
+    // Sort to determine positions
+    const sortedTeamIds = Object.keys(statsMap).sort((a, b) => {
+      const sA = statsMap[a];
+      const sB = statsMap[b];
+      if (sB.points !== sA.points) return sB.points - sA.points;
+      const gdA = sA.goalsFor - sA.goalsAgainst;
+      const gdB = sB.goalsFor - sB.goalsAgainst;
+      if (gdB !== gdA) return gdB - gdA;
+      return sB.goalsFor - sA.goalsFor;
+    });
+
+    const positionMap = {};
+    sortedTeamIds.forEach((id, idx) => {
+      positionMap[id] = idx + 1;
+    });
+
+    const teamsDirectory = tournament.teams.map(team => {
+      const tId = team._id.toString();
+      const stats = statsMap[tId] || {
+        played: 0, wins: 0, draws: 0, losses: 0,
+        goalsFor: 0, goalsAgainst: 0, cleanSheets: 0, points: 0, form: [],
+      };
+
+      const squad = (team.playersPurchased || []).map(item => {
+        const playerObj = item.playerId || {};
+        return {
+          id: playerObj._id || item._id,
+          name: item.playerName || playerObj.name || 'Unnamed Player',
+          playerNumber: playerObj.playerNumber ?? null,
+          position: playerObj.position || 'FORWARD',
+          division: playerObj.division || 'Unassigned',
+          photo: playerObj.photo || '',
+          price: item.price || 0,
+          basePrice: playerObj.basePrice || 0,
+          rating: playerObj.rating || 0,
+          matches: playerObj.matches || 0,
+          goals: playerObj.goals || 0,
+          assists: playerObj.assists || 0,
+        };
+      });
+
+      // Role breakdown
+      let gkCount = 0;
+      let defCount = 0;
+      let midCount = 0;
+      let fwdCount = 0;
+      squad.forEach(p => {
+        const pos = (p.position || '').toUpperCase();
+        if (pos.includes('GOAL') || pos === 'GK') gkCount++;
+        else if (pos.includes('DEF') || pos === 'CB' || pos === 'LB' || pos === 'RB') defCount++;
+        else if (pos.includes('MID') || pos === 'CM' || pos === 'CDM' || pos === 'CAM') midCount++;
+        else fwdCount++;
+      });
+
+      return {
+        _id: team._id,
+        teamId: team._id,
+        teamName: team.team,
+        bidderName: team.name,
+        bidderNumber: team.bidderNumber,
+        budget: team.budget,
+        remainingBudget: team.remainingBudget,
+        totalSpent: team.totalSpent,
+        position: positionMap[tId] || 1,
+        played: stats.played,
+        wins: stats.wins,
+        draws: stats.draws,
+        losses: stats.losses,
+        goalsFor: stats.goalsFor,
+        goalsAgainst: stats.goalsAgainst,
+        goalDifference: stats.goalsFor - stats.goalsAgainst,
+        cleanSheets: stats.cleanSheets,
+        points: stats.points,
+        form: stats.form.slice(-5),
+        winRate: stats.played > 0 ? Math.round((stats.wins / stats.played) * 100) : 0,
+        avgGoals: stats.played > 0 ? (stats.goalsFor / stats.played).toFixed(1) : '0.0',
+        squad,
+        squadStats: {
+          totalPlayers: squad.length,
+          gkCount,
+          defCount,
+          midCount,
+          fwdCount,
+          totalValue: squad.reduce((sum, p) => sum + (p.price || 0), 0),
+          avgPrice: squad.length > 0 ? Math.round(squad.reduce((sum, p) => sum + (p.price || 0), 0) / squad.length) : 0,
+        },
+      };
+    });
+
+    // Sort by standings position
+    teamsDirectory.sort((a, b) => a.position - b.position);
+
+    res.json(teamsDirectory);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get tournament-wide deep analytics
+exports.getTournamentAnalytics = async (req, res, next) => {
+  try {
+    const tournamentId = new (require('mongoose').Types.ObjectId)(req.params.id);
+    const tournament = await Tournament.findById(tournamentId)
+      .populate('teams', 'name team bidderNumber');
+    if (!tournament) return res.status(404).json({ message: 'Tournament not found' });
+
+    const [allMatches, allEvents] = await Promise.all([
+      Match.find({ tournamentId })
+        .populate('homeTeamId', 'name team')
+        .populate('awayTeamId', 'name team'),
+      MatchEvent.find({ tournamentId })
+        .populate('teamId', 'name team'),
+    ]);
+
+    const completedMatches = allMatches.filter(m => m.status === 'COMPLETED');
+    const liveMatches = allMatches.filter(m => m.status === 'LIVE' || m.status === 'HALF_TIME');
+    const upcomingMatches = allMatches.filter(m => m.status === 'UPCOMING');
+
+    let totalGoals = 0;
+    let homeWins = 0;
+    let awayWins = 0;
+    let draws = 0;
+    let highestScoringMatch = null;
+    let biggestWin = null;
+    let highestTotalGoalsInMatch = -1;
+    let biggestWinMargin = -1;
+
+    // Team stats aggregation
+    const teamStats = {};
+    for (const team of tournament.teams) {
+      teamStats[team._id.toString()] = {
+        teamId: team._id,
+        teamName: team.team,
+        bidderName: team.name,
+        played: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        cleanSheets: 0,
+        points: 0,
+        yellowCards: 0,
+        redCards: 0,
+        fouls: 0,
+        penaltiesWon: 0,
+        firstHalfGoals: 0,
+        secondHalfGoals: 0,
+      };
+    }
+
+    for (const m of completedMatches) {
+      const matchGoals = m.homeScore + m.awayScore;
+      totalGoals += matchGoals;
+
+      const hId = m.homeTeamId?._id?.toString() || m.homeTeamId?.toString();
+      const aId = m.awayTeamId?._id?.toString() || m.awayTeamId?.toString();
+
+      if (teamStats[hId]) {
+        teamStats[hId].played++;
+        teamStats[hId].goalsFor += m.homeScore;
+        teamStats[hId].goalsAgainst += m.awayScore;
+        if (m.awayScore === 0) teamStats[hId].cleanSheets++;
+      }
+      if (teamStats[aId]) {
+        teamStats[aId].played++;
+        teamStats[aId].goalsFor += m.awayScore;
+        teamStats[aId].goalsAgainst += m.homeScore;
+        if (m.homeScore === 0) teamStats[aId].cleanSheets++;
+      }
+
+      if (m.homeScore > m.awayScore) {
+        homeWins++;
+        if (teamStats[hId]) {
+          teamStats[hId].wins++;
+          teamStats[hId].points += tournament.pointsForWin;
+        }
+        if (teamStats[aId]) {
+          teamStats[aId].losses++;
+          teamStats[aId].points += tournament.pointsForLoss;
+        }
+      } else if (m.homeScore < m.awayScore) {
+        awayWins++;
+        if (teamStats[aId]) {
+          teamStats[aId].wins++;
+          teamStats[aId].points += tournament.pointsForWin;
+        }
+        if (teamStats[hId]) {
+          teamStats[hId].losses++;
+          teamStats[hId].points += tournament.pointsForLoss;
+        }
+      } else {
+        draws++;
+        if (teamStats[hId]) {
+          teamStats[hId].draws++;
+          teamStats[hId].points += tournament.pointsForDraw;
+        }
+        if (teamStats[aId]) {
+          teamStats[aId].draws++;
+          teamStats[aId].points += tournament.pointsForDraw;
+        }
+      }
+
+      // Check highest scoring
+      if (matchGoals > highestTotalGoalsInMatch) {
+        highestTotalGoalsInMatch = matchGoals;
+        highestScoringMatch = {
+          homeTeam: m.homeTeamId?.team || 'Home',
+          awayTeam: m.awayTeamId?.team || 'Away',
+          homeScore: m.homeScore,
+          awayScore: m.awayScore,
+          totalGoals: matchGoals,
+          round: m.round,
+        };
+      }
+
+      // Check biggest win
+      const margin = Math.abs(m.homeScore - m.awayScore);
+      if (margin > biggestWinMargin && margin > 0) {
+        biggestWinMargin = margin;
+        const winner = m.homeScore > m.awayScore ? m.homeTeamId?.team : m.awayTeamId?.team;
+        const loser = m.homeScore > m.awayScore ? m.awayTeamId?.team : m.homeTeamId?.team;
+        biggestWin = {
+          winner: winner || 'Winner',
+          loser: loser || 'Loser',
+          score: `${Math.max(m.homeScore, m.awayScore)} - ${Math.min(m.homeScore, m.awayScore)}`,
+          margin,
+          round: m.round,
+        };
+      }
+    }
+
+    // Process MatchEvents for cards, fouls, phases
+    let totalYellowCards = 0;
+    let totalRedCards = 0;
+    let totalFouls = 0;
+    let totalCorners = 0;
+    let totalOffsides = 0;
+    let totalPenalties = 0;
+    let penaltiesScored = 0;
+    let firstHalfGoals = 0;
+    let secondHalfGoals = 0;
+
+    for (const ev of allEvents) {
+      const tId = ev.teamId?._id?.toString() || ev.teamId?.toString();
+      const currentTeam = teamStats[tId];
+
+      if (['GOAL', 'PENALTY_GOAL', 'OWN_GOAL'].includes(ev.type)) {
+        if (ev.minute <= 45) {
+          firstHalfGoals++;
+          if (currentTeam) currentTeam.firstHalfGoals++;
+        } else {
+          secondHalfGoals++;
+          if (currentTeam) currentTeam.secondHalfGoals++;
+        }
+      }
+
+      switch (ev.type) {
+        case 'YELLOW_CARD':
+          totalYellowCards++;
+          if (currentTeam) currentTeam.yellowCards++;
+          break;
+        case 'RED_CARD':
+          totalRedCards++;
+          if (currentTeam) currentTeam.redCards++;
+          break;
+        case 'FOUL':
+          totalFouls++;
+          if (currentTeam) currentTeam.fouls++;
+          break;
+        case 'PENALTY_GOAL':
+          totalPenalties++;
+          penaltiesScored++;
+          if (currentTeam) currentTeam.penaltiesWon++;
+          break;
+        case 'PENALTY_MISSED':
+          totalPenalties++;
+          if (currentTeam) currentTeam.penaltiesWon++;
+          break;
+        case 'CORNER':
+          totalCorners++;
+          break;
+        case 'OFFSIDE':
+          totalOffsides++;
+          break;
+      }
+    }
+
+    const teamList = Object.values(teamStats);
+
+    // Attack rankings: Goals For DESC, avg goals DESC
+    const attackRankings = [...teamList].map(t => ({
+      teamId: t.teamId,
+      teamName: t.teamName,
+      bidderName: t.bidderName,
+      played: t.played,
+      goalsFor: t.goalsFor,
+      avgGoals: t.played > 0 ? (t.goalsFor / t.played).toFixed(2) : '0.00',
+      firstHalfGoals: t.firstHalfGoals,
+      secondHalfGoals: t.secondHalfGoals,
+    })).sort((a, b) => b.goalsFor - a.goalsFor || parseFloat(b.avgGoals) - parseFloat(a.avgGoals));
+
+    // Defense rankings: Goals Against ASC, clean sheets DESC
+    const defenseRankings = [...teamList].map(t => ({
+      teamId: t.teamId,
+      teamName: t.teamName,
+      bidderName: t.bidderName,
+      played: t.played,
+      goalsAgainst: t.goalsAgainst,
+      cleanSheets: t.cleanSheets,
+      avgConceded: t.played > 0 ? (t.goalsAgainst / t.played).toFixed(2) : '0.00',
+    })).sort((a, b) => a.goalsAgainst - b.goalsAgainst || b.cleanSheets - a.cleanSheets);
+
+    // Fair play index: yellow = 1 pt, red = 3 pt, foul = 0.2 pt. Lowest points = cleanest team
+    const fairPlayRankings = [...teamList].map(t => {
+      const score = (t.yellowCards * 1) + (t.redCards * 3) + Math.round(t.fouls * 0.2);
+      return {
+        teamId: t.teamId,
+        teamName: t.teamName,
+        bidderName: t.bidderName,
+        played: t.played,
+        yellowCards: t.yellowCards,
+        redCards: t.redCards,
+        fouls: t.fouls,
+        fairPlayPoints: score,
+      };
+    }).sort((a, b) => a.fairPlayPoints - b.fairPlayPoints || a.redCards - b.redCards || a.yellowCards - b.yellowCards);
+
+    const totalCleanSheets = teamList.reduce((acc, t) => acc + t.cleanSheets, 0);
+    const goalsPerMatch = completedMatches.length > 0 ? (totalGoals / completedMatches.length).toFixed(2) : '0.00';
+    const completionRate = allMatches.length > 0 ? Math.round((completedMatches.length / allMatches.length) * 100) : 0;
+
+    res.json({
+      summary: {
+        totalMatches: allMatches.length,
+        completedMatches: completedMatches.length,
+        upcomingMatches: upcomingMatches.length,
+        liveMatches: liveMatches.length,
+        completionRate,
+        totalGoals,
+        goalsPerMatch,
+        totalCleanSheets,
+        totalYellowCards,
+        totalRedCards,
+        totalFouls,
+        totalCorners,
+        totalOffsides,
+        totalPenalties,
+        penaltiesScored,
+      },
+      outcomes: {
+        homeWins,
+        awayWins,
+        draws,
+        total: completedMatches.length,
+        homeWinPct: completedMatches.length > 0 ? Math.round((homeWins / completedMatches.length) * 100) : 0,
+        awayWinPct: completedMatches.length > 0 ? Math.round((awayWins / completedMatches.length) * 100) : 0,
+        drawPct: completedMatches.length > 0 ? Math.round((draws / completedMatches.length) * 100) : 0,
+      },
+      goalPhases: {
+        firstHalf: firstHalfGoals,
+        secondHalf: secondHalfGoals,
+        firstHalfPct: totalGoals > 0 ? Math.round((firstHalfGoals / totalGoals) * 100) : 0,
+        secondHalfPct: totalGoals > 0 ? Math.round((secondHalfGoals / totalGoals) * 100) : 0,
+      },
+      records: {
+        highestScoringMatch: highestTotalGoalsInMatch > 0 ? highestScoringMatch : null,
+        biggestWin: biggestWinMargin > 0 ? biggestWin : null,
+      },
+      attackRankings,
+      defenseRankings,
+      fairPlayRankings,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

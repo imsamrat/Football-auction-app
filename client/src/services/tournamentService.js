@@ -54,9 +54,19 @@ const tournamentService = {
     return response.data;
   },
 
-  // Standings
+  // Standings & Analytics
   getStandings: async (tournamentId) => {
     const response = await api.get(`/tournaments/${tournamentId}/standings`);
+    return response.data;
+  },
+
+  getTeamsDirectory: async (tournamentId) => {
+    const response = await api.get(`/tournaments/${tournamentId}/teams-directory`);
+    return response.data;
+  },
+
+  getTournamentAnalytics: async (tournamentId) => {
+    const response = await api.get(`/tournaments/${tournamentId}/analytics`);
     return response.data;
   },
 

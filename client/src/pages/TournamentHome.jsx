@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Calendar, BarChart3, Users, Target, Handshake, Activity } from 'lucide-react';
+import { Trophy, Calendar, BarChart3, Users, Target, Handshake, Activity, TrendingUp } from 'lucide-react';
 import tournamentService from '../services/tournamentService';
 import { useSocket } from '../context/SocketContext';
 import TournamentDashboard from '../components/tournament/TournamentDashboard';
 import PointTable from '../components/tournament/PointTable';
 import TopScorers from '../components/tournament/TopScorers';
 import TopAssists from '../components/tournament/TopAssists';
-import TeamStats from '../components/tournament/TeamStats';
+import TeamDirectory from '../components/tournament/TeamDirectory';
+import TournamentAnalytics from '../components/tournament/TournamentAnalytics';
 import FixtureCard from '../components/tournament/FixtureCard';
 
 const tabs = [
@@ -19,7 +20,7 @@ const tabs = [
   { id: 'teams', label: 'Teams', icon: Users },
   { id: 'scorers', label: 'Goal Scorers', icon: Target },
   { id: 'assists', label: 'Assists', icon: Handshake },
-  { id: 'statistics', label: 'Statistics', icon: BarChart3 },
+  { id: 'statistics', label: 'Statistics', icon: TrendingUp },
 ];
 
 const TournamentHome = () => {
@@ -33,6 +34,9 @@ const TournamentHome = () => {
   const [scorers, setScorers] = useState([]);
   const [assists, setAssists] = useState([]);
   const [playerStats, setPlayerStats] = useState([]);
+  const [teamsDirectory, setTeamsDirectory] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
+  const [tabLoading, setTabLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -91,10 +95,19 @@ const TournamentHome = () => {
           setFixtures(data);
           break;
         }
-        case 'standings':
-        case 'statistics': {
+        case 'standings': {
           const data = await tournamentService.getStandings(selectedId);
           setStandings(data);
+          break;
+        }
+        case 'teams': {
+          setTabLoading(true);
+          try {
+            const data = await tournamentService.getTeamsDirectory(selectedId);
+            setTeamsDirectory(data);
+          } finally {
+            setTabLoading(false);
+          }
           break;
         }
         case 'scorers': {
@@ -107,9 +120,14 @@ const TournamentHome = () => {
           setAssists(data);
           break;
         }
-        case 'teams': {
-          const data = await tournamentService.getStandings(selectedId);
-          setStandings(data);
+        case 'statistics': {
+          setTabLoading(true);
+          try {
+            const data = await tournamentService.getTournamentAnalytics(selectedId);
+            setAnalytics(data);
+          } finally {
+            setTabLoading(false);
+          }
           break;
         }
       }
@@ -254,7 +272,7 @@ const TournamentHome = () => {
           )}
 
           {activeTab === 'teams' && (
-            <TeamStats standings={standings} />
+            <TeamDirectory teams={teamsDirectory} loading={tabLoading} />
           )}
 
           {activeTab === 'scorers' && (
@@ -266,9 +284,7 @@ const TournamentHome = () => {
           )}
 
           {activeTab === 'statistics' && (
-            <div className="space-y-6">
-              <TeamStats standings={standings} />
-            </div>
+            <TournamentAnalytics analytics={analytics} loading={tabLoading} />
           )}
         </motion.div>
       </AnimatePresence>

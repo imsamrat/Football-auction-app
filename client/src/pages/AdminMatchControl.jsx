@@ -12,9 +12,15 @@ import MatchTimeline from '../components/tournament/MatchTimeline';
 
 const eventTypes = [
   { value: 'GOAL', label: 'Goal', icon: '⚽' },
+  { value: 'PENALTY_GOAL', label: 'Penalty', icon: '🎯' },
+  { value: 'PENALTY_MISSED', label: 'Penalty Miss', icon: '❌' },
+  { value: 'FOUL', label: 'Foul', icon: '⚠️' },
   { value: 'YELLOW_CARD', label: 'Yellow Card', icon: '🟨' },
   { value: 'RED_CARD', label: 'Red Card', icon: '🟥' },
   { value: 'SUBSTITUTION', label: 'Substitution', icon: '🔄' },
+  { value: 'OWN_GOAL', label: 'Own Goal', icon: '🥅' },
+  { value: 'CORNER', label: 'Corner', icon: '📐' },
+  { value: 'OFFSIDE', label: 'Offside', icon: '🚩' },
 ];
 
 const AdminMatchControl = () => {
@@ -29,10 +35,42 @@ const AdminMatchControl = () => {
   const [minuteInput, setMinuteInput] = useState(0);
 
   const [eventForm, setEventForm] = useState({
-    teamId: '', playerId: '', playerName: '', type: 'GOAL',
-    minute: 0, assistPlayerId: '', assistPlayerName: '',
-    replacedPlayerId: '', replacedPlayerName: '',
+    teamId: '',
+    playerId: '',
+    playerName: '',
+    isGuestPlayer: false,
+    guestPlayerName: '',
+    type: 'GOAL',
+    minute: 0,
+    assistPlayerId: '',
+    assistPlayerName: '',
+    isGuestAssist: false,
+    guestAssistName: '',
+    replacedPlayerId: '',
+    replacedPlayerName: '',
+    isGuestReplaced: false,
+    guestReplacedName: '',
   });
+
+  const resetEventForm = () => {
+    setEventForm({
+      teamId: '',
+      playerId: '',
+      playerName: '',
+      isGuestPlayer: false,
+      guestPlayerName: '',
+      type: 'GOAL',
+      minute: 0,
+      assistPlayerId: '',
+      assistPlayerName: '',
+      isGuestAssist: false,
+      guestAssistName: '',
+      replacedPlayerId: '',
+      replacedPlayerName: '',
+      isGuestReplaced: false,
+      guestReplacedName: '',
+    });
+  };
 
   useEffect(() => {
     loadMatch();
@@ -143,18 +181,44 @@ const AdminMatchControl = () => {
 
   const handleAddEvent = async (e) => {
     e.preventDefault();
+    const defaultLabels = {
+      CORNER: 'Corner Kick',
+      OFFSIDE: 'Offside',
+      FOUL: 'Team Foul',
+      PENALTY_MISSED: 'Penalty Missed',
+      OWN_GOAL: 'Own Goal',
+      PENALTY_GOAL: 'Penalty Goal',
+    };
+
+    const finalPlayerName = eventForm.isGuestPlayer
+      ? eventForm.guestPlayerName.trim()
+      : (eventForm.playerName || defaultLabels[eventForm.type] || '');
+
+    if (!finalPlayerName && !['CORNER', 'OFFSIDE', 'FOUL'].includes(eventForm.type)) {
+      toast.error('Player name is required');
+      return;
+    }
+
     try {
       await tournamentService.addMatchEvent(matchId, {
-        ...eventForm,
+        teamId: eventForm.teamId,
+        playerId: eventForm.isGuestPlayer ? null : (eventForm.playerId || null),
+        playerName: finalPlayerName,
+        isGuestPlayer: eventForm.isGuestPlayer,
+        type: eventForm.type,
         minute: eventForm.minute || minuteInput,
+        assistPlayerId: eventForm.isGuestAssist ? null : (eventForm.assistPlayerId || null),
+        assistPlayerName: eventForm.isGuestAssist
+          ? eventForm.guestAssistName.trim()
+          : (eventForm.assistPlayerName || ''),
+        replacedPlayerId: eventForm.isGuestReplaced ? null : (eventForm.replacedPlayerId || null),
+        replacedPlayerName: eventForm.isGuestReplaced
+          ? eventForm.guestReplacedName.trim()
+          : (eventForm.replacedPlayerName || ''),
       });
       toast.success(`${eventForm.type.replace('_', ' ')} added!`);
       setShowEventForm(false);
-      setEventForm({
-        teamId: '', playerId: '', playerName: '', type: 'GOAL',
-        minute: 0, assistPlayerId: '', assistPlayerName: '',
-        replacedPlayerId: '', replacedPlayerName: '',
-      });
+      resetEventForm();
       loadMatch();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to add event');
@@ -407,30 +471,79 @@ const AdminMatchControl = () => {
                   </div>
                 </div>
 
-                {/* Player */}
+                {/* Player Selection */}
                 {eventForm.teamId && (
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Player *</label>
-                    <select
-                      value={eventForm.playerId}
-                      onChange={(e) => {
-                        const selected = getTeamPlayers(eventForm.teamId).find(p => (p.playerId?._id || p.playerId) === e.target.value || p.playerId === e.target.value);
-                        setEventForm(p => ({
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs text-gray-400 font-medium">Player *</label>
+                      <button
+                        type="button"
+                        onClick={() => setEventForm(p => ({
                           ...p,
-                          playerId: e.target.value,
-                          playerName: selected?.playerName || '',
-                        }));
-                      }}
-                      className="input-field"
-                      required
-                    >
-                      <option value="">Select player</option>
-                      {getTeamPlayers(eventForm.teamId).map(p => (
-                        <option key={p.playerId?._id || p.playerId} value={p.playerId?._id || p.playerId}>
-                          {p.playerName} {p.position ? `(${p.position})` : ''}
-                        </option>
-                      ))}
-                    </select>
+                          isGuestPlayer: !p.isGuestPlayer,
+                          playerId: !p.isGuestPlayer ? '__guest__' : '',
+                          playerName: !p.isGuestPlayer ? p.guestPlayerName : '',
+                        }))}
+                        className={`text-xs px-2 py-0.5 rounded-lg border transition-all ${
+                          eventForm.isGuestPlayer
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 font-bold'
+                            : 'bg-dark-200 text-gray-400 hover:text-white border-white/5'
+                        }`}
+                      >
+                        {eventForm.isGuestPlayer ? '✓ Guest Player (Out of Auction)' : '+ Out of Auction Player?'}
+                      </button>
+                    </div>
+
+                    {!eventForm.isGuestPlayer ? (
+                      <select
+                        value={eventForm.playerId}
+                        onChange={(e) => {
+                          if (e.target.value === '__guest__') {
+                            setEventForm(p => ({ ...p, isGuestPlayer: true, playerId: '__guest__', playerName: '' }));
+                          } else {
+                            const selected = getTeamPlayers(eventForm.teamId).find(p => (p.playerId?._id || p.playerId) === e.target.value || p.playerId === e.target.value);
+                            setEventForm(p => ({
+                              ...p,
+                              isGuestPlayer: false,
+                              playerId: e.target.value,
+                              playerName: selected?.playerName || '',
+                            }));
+                          }
+                        }}
+                        className="input-field"
+                        required
+                      >
+                        <option value="">Select player from squad</option>
+                        {getTeamPlayers(eventForm.teamId).map(p => (
+                          <option key={p.playerId?._id || p.playerId} value={p.playerId?._id || p.playerId}>
+                            {p.playerName} {p.position ? `(${p.position})` : ''}
+                          </option>
+                        ))}
+                        <option value="__guest__">➕ Guest / Out-of-Auction Player...</option>
+                      </select>
+                    ) : (
+                      <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-1">
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-amber-400">
+                          Guest Player Name (Out of Auction) *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. John Doe (Guest)"
+                          value={eventForm.guestPlayerName}
+                          onChange={(e) => setEventForm(p => ({
+                            ...p,
+                            guestPlayerName: e.target.value,
+                            playerName: e.target.value,
+                          }))}
+                          className="input-field !text-sm border-amber-500/40 focus:border-amber-500"
+                          required
+                          autoFocus
+                        />
+                        <p className="text-[10px] text-gray-400">
+                          This player was not in the auction squad. Their name will be recorded on the scoreboard, timeline, and top scorers list.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -447,68 +560,173 @@ const AdminMatchControl = () => {
                   />
                 </div>
 
-                {/* Assist (for goals) */}
-                {eventForm.type === 'GOAL' && eventForm.teamId && (
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Assist Player (optional)</label>
-                    <select
-                      value={eventForm.assistPlayerId}
-                      onChange={(e) => {
-                        const selected = getTeamPlayers(eventForm.teamId).find(p => (p.playerId?._id || p.playerId) === e.target.value || p.playerId === e.target.value);
-                        setEventForm(p => ({
+                {/* Assist (for goals and penalties) */}
+                {(eventForm.type === 'GOAL' || eventForm.type === 'PENALTY_GOAL') && eventForm.teamId && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs text-gray-400">Assist Player (optional)</label>
+                      <button
+                        type="button"
+                        onClick={() => setEventForm(p => ({
                           ...p,
-                          assistPlayerId: e.target.value,
-                          assistPlayerName: selected?.playerName || '',
-                        }));
-                      }}
-                      className="input-field"
-                    >
-                      <option value="">No assist</option>
-                      {getTeamPlayers(eventForm.teamId)
-                        .filter(p => (p.playerId?._id || p.playerId) !== eventForm.playerId)
-                        .map(p => (
-                          <option key={p.playerId?._id || p.playerId} value={p.playerId?._id || p.playerId}>
-                            {p.playerName}
-                          </option>
-                        ))}
-                    </select>
+                          isGuestAssist: !p.isGuestAssist,
+                          assistPlayerId: !p.isGuestAssist ? '__guest__' : '',
+                          assistPlayerName: !p.isGuestAssist ? p.guestAssistName : '',
+                        }))}
+                        className={`text-[11px] px-1.5 py-0.5 rounded transition-all ${
+                          eventForm.isGuestAssist
+                            ? 'text-amber-400 font-bold'
+                            : 'text-gray-500 hover:text-gray-300'
+                        }`}
+                      >
+                        {eventForm.isGuestAssist ? '✓ Guest assist active' : '+ Out of auction?'}
+                      </button>
+                    </div>
+
+                    {!eventForm.isGuestAssist ? (
+                      <select
+                        value={eventForm.assistPlayerId}
+                        onChange={(e) => {
+                          if (e.target.value === '__guest__') {
+                            setEventForm(p => ({ ...p, isGuestAssist: true, assistPlayerId: '__guest__' }));
+                          } else {
+                            const selected = getTeamPlayers(eventForm.teamId).find(p => (p.playerId?._id || p.playerId) === e.target.value || p.playerId === e.target.value);
+                            setEventForm(p => ({
+                              ...p,
+                              isGuestAssist: false,
+                              assistPlayerId: e.target.value,
+                              assistPlayerName: selected?.playerName || '',
+                            }));
+                          }
+                        }}
+                        className="input-field"
+                      >
+                        <option value="">No assist</option>
+                        {getTeamPlayers(eventForm.teamId)
+                          .filter(p => (p.playerId?._id || p.playerId) !== eventForm.playerId)
+                          .map(p => (
+                            <option key={p.playerId?._id || p.playerId} value={p.playerId?._id || p.playerId}>
+                              {p.playerName}
+                            </option>
+                          ))}
+                        <option value="__guest__">➕ Guest / Out-of-Auction Player...</option>
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="Assist provider name (out of auction)"
+                        value={eventForm.guestAssistName}
+                        onChange={(e) => setEventForm(p => ({
+                          ...p,
+                          guestAssistName: e.target.value,
+                          assistPlayerName: e.target.value,
+                        }))}
+                        className="input-field !text-sm border-amber-500/30"
+                      />
+                    )}
                   </div>
                 )}
 
                 {/* Substitution replacement */}
                 {eventForm.type === 'SUBSTITUTION' && eventForm.teamId && (
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Player Going Off</label>
-                    <select
-                      value={eventForm.replacedPlayerId}
-                      onChange={(e) => {
-                        const selected = getTeamPlayers(eventForm.teamId).find(p => (p.playerId?._id || p.playerId) === e.target.value || p.playerId === e.target.value);
-                        setEventForm(p => ({
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs text-gray-400 mb-1">Player Going Off</label>
+                      <button
+                        type="button"
+                        onClick={() => setEventForm(p => ({
                           ...p,
-                          replacedPlayerId: e.target.value,
-                          replacedPlayerName: selected?.playerName || '',
-                        }));
-                      }}
-                      className="input-field"
-                    >
-                      <option value="">Select player</option>
-                      {getTeamPlayers(eventForm.teamId)
-                        .filter(p => (p.playerId?._id || p.playerId) !== eventForm.playerId)
-                        .map(p => (
-                          <option key={p.playerId?._id || p.playerId} value={p.playerId?._id || p.playerId}>
-                            {p.playerName}
-                          </option>
-                        ))}
-                    </select>
+                          isGuestReplaced: !p.isGuestReplaced,
+                          replacedPlayerId: !p.isGuestReplaced ? '__guest__' : '',
+                          replacedPlayerName: !p.isGuestReplaced ? p.guestReplacedName : '',
+                        }))}
+                        className={`text-[11px] px-1.5 py-0.5 rounded transition-all ${
+                          eventForm.isGuestReplaced
+                            ? 'text-amber-400 font-bold'
+                            : 'text-gray-500 hover:text-gray-300'
+                        }`}
+                      >
+                        {eventForm.isGuestReplaced ? '✓ Guest player' : '+ Out of auction?'}
+                      </button>
+                    </div>
+
+                    {!eventForm.isGuestReplaced ? (
+                      <select
+                        value={eventForm.replacedPlayerId}
+                        onChange={(e) => {
+                          if (e.target.value === '__guest__') {
+                            setEventForm(p => ({ ...p, isGuestReplaced: true, replacedPlayerId: '__guest__' }));
+                          } else {
+                            const selected = getTeamPlayers(eventForm.teamId).find(p => (p.playerId?._id || p.playerId) === e.target.value || p.playerId === e.target.value);
+                            setEventForm(p => ({
+                              ...p,
+                              isGuestReplaced: false,
+                              replacedPlayerId: e.target.value,
+                              replacedPlayerName: selected?.playerName || '',
+                            }));
+                          }
+                        }}
+                        className="input-field"
+                      >
+                        <option value="">Select player</option>
+                        {getTeamPlayers(eventForm.teamId)
+                          .filter(p => (p.playerId?._id || p.playerId) !== eventForm.playerId)
+                          .map(p => (
+                            <option key={p.playerId?._id || p.playerId} value={p.playerId?._id || p.playerId}>
+                              {p.playerName}
+                            </option>
+                          ))}
+                        <option value="__guest__">➕ Guest / Out-of-Auction Player...</option>
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="Replaced player name (out of auction)"
+                        value={eventForm.guestReplacedName}
+                        onChange={(e) => setEventForm(p => ({
+                          ...p,
+                          guestReplacedName: e.target.value,
+                          replacedPlayerName: e.target.value,
+                        }))}
+                        className="input-field !text-sm border-amber-500/30"
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* Event specific helpers */}
+                {eventForm.type === 'PENALTY_GOAL' && (
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">
+                    🎯 <strong>Penalty Goal:</strong> This team will be awarded +1 goal and the player will be credited in Top Scorers.
+                  </div>
+                )}
+                {eventForm.type === 'PENALTY_MISSED' && (
+                  <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+                    ❌ <strong>Penalty Missed:</strong> Recorded as an attempt with no score change.
+                  </div>
+                )}
+                {eventForm.type === 'OWN_GOAL' && (
+                  <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-300">
+                    🥅 <strong>Own Goal:</strong> Select the team whose player scored in their own net. The OPPONENT team will be awarded +1 goal.
+                  </div>
+                )}
+                {eventForm.type === 'FOUL' && (
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
+                    ⚠️ <strong>Foul:</strong> Player selection is optional if recorded as a team foul.
                   </div>
                 )}
 
                 <button
                   type="submit"
-                  disabled={!eventForm.teamId || !eventForm.playerId}
+                  disabled={
+                    !eventForm.teamId ||
+                    (!['CORNER', 'OFFSIDE', 'FOUL'].includes(eventForm.type) &&
+                      !eventForm.playerId &&
+                      !eventForm.guestPlayerName?.trim())
+                  }
                   className="btn-primary w-full !text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Add Event
+                  Add {eventTypes.find(e => e.value === eventForm.type)?.label || 'Event'}
                 </button>
               </form>
             </motion.div>
@@ -531,12 +749,47 @@ const AdminMatchControl = () => {
                 <div className="flex items-center gap-3">
                   <span className="text-primary font-mono font-bold text-sm w-10">{event.minute}'</span>
                   <span className="text-base">{
-                    event.type === 'GOAL' ? '⚽' :
-                    event.type === 'YELLOW_CARD' ? '🟨' :
-                    event.type === 'RED_CARD' ? '🟥' : '🔄'
+                    eventTypes.find(et => et.value === event.type)?.icon || '•'
                   }</span>
                   <div>
-                    <div className="text-sm text-white">{event.playerName}</div>
+                    <div className="text-sm text-white flex items-center gap-1.5 flex-wrap">
+                      <span>{event.playerName || eventTypes.find(et => et.value === event.type)?.label}</span>
+                      {event.type === 'PENALTY_GOAL' && (
+                        <span className="px-1.5 py-0.2 rounded text-[10px] bg-emerald-500/20 text-emerald-400 font-semibold">
+                          Penalty
+                        </span>
+                      )}
+                      {event.type === 'PENALTY_MISSED' && (
+                        <span className="px-1.5 py-0.2 rounded text-[10px] bg-red-500/20 text-red-400 font-semibold">
+                          Missed
+                        </span>
+                      )}
+                      {event.type === 'OWN_GOAL' && (
+                        <span className="px-1.5 py-0.2 rounded text-[10px] bg-purple-500/20 text-purple-400 font-semibold">
+                          Own Goal
+                        </span>
+                      )}
+                      {event.type === 'FOUL' && (
+                        <span className="px-1.5 py-0.2 rounded text-[10px] bg-amber-500/20 text-amber-300 font-semibold">
+                          Foul
+                        </span>
+                      )}
+                      {event.type === 'CORNER' && (
+                        <span className="px-1.5 py-0.2 rounded text-[10px] bg-cyan-500/20 text-cyan-400 font-semibold">
+                          Corner
+                        </span>
+                      )}
+                      {event.type === 'OFFSIDE' && (
+                        <span className="px-1.5 py-0.2 rounded text-[10px] bg-orange-500/20 text-orange-400 font-semibold">
+                          Offside
+                        </span>
+                      )}
+                      {(event.isGuestPlayer || !event.playerId) && !['CORNER', 'OFFSIDE', 'FOUL'].includes(event.type) && (
+                        <span className="px-1.5 py-0.2 rounded text-[10px] bg-amber-500/20 text-amber-300 font-medium">
+                          Guest
+                        </span>
+                      )}
+                    </div>
                     {event.assistPlayerName && (
                       <div className="text-xs text-gray-500">Assist: {event.assistPlayerName}</div>
                     )}

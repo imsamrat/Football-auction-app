@@ -2,9 +2,28 @@ import { motion } from 'framer-motion';
 
 const eventIcons = {
   GOAL: '⚽',
+  PENALTY_GOAL: '🎯',
+  PENALTY_MISSED: '❌',
+  OWN_GOAL: '🥅',
+  FOUL: '⚠️',
   YELLOW_CARD: '🟨',
   RED_CARD: '🟥',
   SUBSTITUTION: '🔄',
+  CORNER: '📐',
+  OFFSIDE: '🚩',
+};
+
+const eventLabels = {
+  GOAL: 'Goal',
+  PENALTY_GOAL: 'Penalty Goal',
+  PENALTY_MISSED: 'Penalty Missed',
+  OWN_GOAL: 'Own Goal',
+  FOUL: 'Foul',
+  YELLOW_CARD: 'Yellow Card',
+  RED_CARD: 'Red Card',
+  SUBSTITUTION: 'Substitution',
+  CORNER: 'Corner Kick',
+  OFFSIDE: 'Offside',
 };
 
 const MatchTimeline = ({ events = [], homeTeamId }) => {
@@ -45,8 +64,45 @@ const MatchTimeline = ({ events = [], homeTeamId }) => {
 
         {/* Details */}
         <div className="flex-1">
-          <div className="font-medium text-white text-sm">{event.playerName}</div>
-          {event.type === 'GOAL' && event.assistPlayerName && (
+          <div className="font-medium text-white text-sm flex items-center gap-1.5 flex-wrap">
+            <span>{event.playerName || eventLabels[event.type]}</span>
+            {event.type === 'PENALTY_GOAL' && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold">
+                Penalty Goal
+              </span>
+            )}
+            {event.type === 'PENALTY_MISSED' && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-semibold">
+                Penalty Missed
+              </span>
+            )}
+            {event.type === 'OWN_GOAL' && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 font-semibold">
+                Own Goal
+              </span>
+            )}
+            {event.type === 'FOUL' && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">
+                Foul
+              </span>
+            )}
+            {event.type === 'CORNER' && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-semibold">
+                Corner
+              </span>
+            )}
+            {event.type === 'OFFSIDE' && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 font-semibold">
+                Offside
+              </span>
+            )}
+            {(event.isGuestPlayer || !event.playerId) && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">
+                Guest
+              </span>
+            )}
+          </div>
+          {(event.type === 'GOAL' || event.type === 'PENALTY_GOAL') && event.assistPlayerName && (
             <div className="text-xs text-gray-500">Assist: {event.assistPlayerName}</div>
           )}
           {event.type === 'SUBSTITUTION' && event.replacedPlayerName && (

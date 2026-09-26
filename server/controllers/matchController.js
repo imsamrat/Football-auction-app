@@ -162,7 +162,7 @@ exports.addEvent = async (req, res, next) => {
       return res.status(400).json({ message: 'Cannot add events to a completed or cancelled match' });
     }
 
-    const { teamId, playerId, playerName, type, minute, assistPlayerId, assistPlayerName, replacedPlayerId, replacedPlayerName } = req.body;
+    const { teamId, playerId, playerName, type, minute, assistPlayerId, assistPlayerName, replacedPlayerId, replacedPlayerName, isGuestPlayer } = req.body;
 
     // Validate team belongs to match
     const homeId = match.homeTeamId.toString();
@@ -176,8 +176,9 @@ exports.addEvent = async (req, res, next) => {
       matchId: match._id,
       tournamentId: match.tournamentId,
       teamId,
-      playerId,
+      playerId: playerId || null,
       playerName: playerName || '',
+      isGuestPlayer: Boolean(isGuestPlayer || !playerId),
       type,
       minute: minute || match.matchMinute || 0,
       assistPlayerId: assistPlayerId || null,
@@ -186,12 +187,23 @@ exports.addEvent = async (req, res, next) => {
       replacedPlayerName: replacedPlayerName || '',
     });
 
-    // Update score for goals
-    if (type === 'GOAL') {
+    // Update score for goals (GOAL, PENALTY_GOAL, OWN_GOAL)
+    const isRegularGoal = type === 'GOAL' || type === 'PENALTY_GOAL';
+    const isOwnGoal = type === 'OWN_GOAL';
+
+    if (isRegularGoal) {
       if (teamId === homeId) {
         match.homeScore += 1;
       } else {
         match.awayScore += 1;
+      }
+      await match.save();
+    } else if (isOwnGoal) {
+      // In an own goal, the OPPONENT team receives the goal point
+      if (teamId === homeId) {
+        match.awayScore += 1;
+      } else {
+        match.homeScore += 1;
       }
       await match.save();
     }
@@ -203,7 +215,7 @@ exports.addEvent = async (req, res, next) => {
     const io = req.app.get('io');
     if (io) {
       io.emit('match:event', { match: populated, event });
-      if (type === 'GOAL') {
+      if (isRegularGoal || isOwnGoal) {
         io.emit('match:goal', { match: populated, event });
       }
     }
@@ -223,14 +235,26 @@ exports.deleteEvent = async (req, res, next) => {
     const match = await Match.findById(event.matchId);
 
     // Revert score if it was a goal
-    if (event.type === 'GOAL' && match) {
+    if (match) {
       const homeId = match.homeTeamId.toString();
-      if (event.teamId.toString() === homeId) {
-        match.homeScore = Math.max(0, match.homeScore - 1);
-      } else {
-        match.awayScore = Math.max(0, match.awayScore - 1);
+      const isRegularGoal = event.type === 'GOAL' || event.type === 'PENALTY_GOAL';
+      const isOwnGoal = event.type === 'OWN_GOAL';
+
+      if (isRegularGoal) {
+        if (event.teamId.toString() === homeId) {
+          match.homeScore = Math.max(0, match.homeScore - 1);
+        } else {
+          match.awayScore = Math.max(0, match.awayScore - 1);
+        }
+        await match.save();
+      } else if (isOwnGoal) {
+        if (event.teamId.toString() === homeId) {
+          match.awayScore = Math.max(0, match.awayScore - 1);
+        } else {
+          match.homeScore = Math.max(0, match.homeScore - 1);
+        }
+        await match.save();
       }
-      await match.save();
     }
 
     await event.deleteOne();

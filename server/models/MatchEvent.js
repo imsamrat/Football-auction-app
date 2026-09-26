@@ -21,15 +21,30 @@ const matchEventSchema = new mongoose.Schema({
   playerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Player',
-    required: true,
+    default: null,
+  },
+  isGuestPlayer: {
+    type: Boolean,
+    default: false,
   },
   playerName: {
     type: String,
-    required: true,
+    default: '',
   },
   type: {
     type: String,
-    enum: ['GOAL', 'ASSIST', 'YELLOW_CARD', 'RED_CARD', 'SUBSTITUTION'],
+    enum: [
+      'GOAL',
+      'PENALTY_GOAL',
+      'PENALTY_MISSED',
+      'OWN_GOAL',
+      'FOUL',
+      'YELLOW_CARD',
+      'RED_CARD',
+      'SUBSTITUTION',
+      'CORNER',
+      'OFFSIDE',
+    ],
     required: true,
   },
   minute: {

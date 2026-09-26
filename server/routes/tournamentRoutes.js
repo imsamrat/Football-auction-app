@@ -5,6 +5,7 @@ const {
   deleteTournament, getAvailableTeams, getTeamSquad, generateFixtures,
   getFixtures, deleteFixtures, getStandings, getTopScorers,
   getTopAssists, getPlayerStats, getDashboard,
+  getTournamentTeamsDirectory, getTournamentAnalytics,
 } = require('../controllers/tournamentController');
 const { adminAuth } = require('../middleware/auth');
 
@@ -14,6 +15,8 @@ router.get('/available-teams', getAvailableTeams);
 router.get('/:id', getTournament);
 router.get('/:id/fixtures', getFixtures);
 router.get('/:id/standings', getStandings);
+router.get('/:id/teams-directory', getTournamentTeamsDirectory);
+router.get('/:id/analytics', getTournamentAnalytics);
 router.get('/:id/scorers', getTopScorers);
 router.get('/:id/assists', getTopAssists);
 router.get('/:id/player-stats', getPlayerStats);
